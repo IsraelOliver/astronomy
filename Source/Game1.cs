@@ -45,6 +45,7 @@ public class Game1 : Game
     protected override void Initialize()
     {
         _solarSystem = SolarSystemFactory.Create(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
+        _camera.Reset(_solarSystem.ViewMode);
         base.Initialize();
     }
 

@@ -5,6 +5,7 @@ namespace Astronomia;
 
 public sealed class SolarSystemState
 {
+    private const SystemViewMode InitialViewMode = SystemViewMode.Inclined;
     private const int MaximumTrailPoints = 900;
     private const double MinimumMassFactor = 1e-4;
     private const double MaximumMassFactor = 1e8;
@@ -40,7 +41,7 @@ public sealed class SolarSystemState
     public float SimulationDays { get; private set; }
     public float DaysPerSecond { get; private set; } = 14f;
     public bool Paused { get; private set; }
-    public SystemViewMode ViewMode { get; private set; } = SystemViewMode.TopDown;
+    public SystemViewMode ViewMode { get; private set; } = InitialViewMode;
     public CelestialBody? SelectedPlanet { get; private set; }
     public bool IsSunSelected { get; private set; }
     public bool IsFilterMenuOpen { get; private set; }
@@ -207,7 +208,7 @@ public sealed class SolarSystemState
     {
         SimulationDays = 0f;
         DaysPerSecond = 14f;
-        ViewMode = SystemViewMode.TopDown;
+        ViewMode = InitialViewMode;
         GravitySimulation.Reset();
         ResetRotationSpeeds();
         ResetTrails();
