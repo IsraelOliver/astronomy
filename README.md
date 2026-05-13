@@ -1,8 +1,44 @@
-# Astronomia
+# Astronomia - Simulador Orbital
 
-Projeto MonoGame DesktopGL para simular orbitas do Sistema Solar em 2D.
+Simulador do Sistema Solar feito em **MonoGame DesktopGL**, criado para estudar astronomia de forma visual, interativa e experimental.
 
-## Como rodar
+O projeto combina dois modos principais:
+
+- **Modo 2D superior**: simulacao gravitacional N-corpos com editor de massa e velocidade.
+- **Modo inclinado**: visual cinematografico/educacional com shaders, profundidade, orbitas em perspectiva e leitura artistica dos planetas.
+
+![Modo inclinado do simulador](image/screenshot_20260513_105745_101.png)
+
+## Destaques
+
+- Sol, planetas principais, Lua e Plutao.
+- Plutao como planeta anao estudavel.
+- Motor gravitacional N-corpos no modo 2D.
+- Planetas afetam as orbitas uns dos outros.
+- Lua incluida na simulacao gravitacional.
+- Editor para massa, rotacao e velocidade de translacao no modo 2D.
+- Rastros orbitais no modo 2D.
+- Modo inclinado com profundidade visual, frente/tras do Sol e ordenacao de corpos.
+- Shaders para Sol, planetas, aneis, fundo espacial e poeira solar.
+- Planetas com volume guiado pela luz do Sol e camada visual desenhada por cima.
+- Atmosferas mais vivas em planetas como Venus, Terra, Urano e Netuno.
+- Aneis de Saturno com textura procedural e sombra do planeta nos aneis.
+- Aneis de Urano finos, escuros e inclinados, inspirados no sistema real.
+- Cinturao principal de asteroides entre Marte e Jupiter.
+- Fundo inclinado com gradiente espacial, nebulosidade sutil, Via Lactea estilizada, estrelas e paralaxe.
+- Labels discretos no modo inclinado.
+- Painel de estudo com fase visivel aproximada do planeta.
+- Filtro de centro de massa no modo 2D.
+- Captura de tela com `F2`.
+
+## Como Rodar
+
+Requisitos:
+
+- .NET 9 SDK
+- MonoGame Content Builder via pacote do projeto
+
+Execute:
 
 ```powershell
 dotnet restore
@@ -11,55 +47,89 @@ dotnet run
 
 ## Controles
 
-- `Espaco`: pausar ou continuar a simulacao.
-- `+` / `-`: aumentar ou reduzir a escala de tempo.
-- `R`: reiniciar tempo, zoom e camera.
-- `Scroll do mouse`: aproximar ou afastar.
-- `Setas`: mover a camera.
-- `Botao direito do mouse`: arrastar a camera.
-- Botao `Centralizar Sol`: levar a camera de volta para o Sol.
-- Botao `Filtros`: abrir filtros visuais, incluindo centro de massa.
-- `Clique no Sol ou em um planeta`: aproximar a camera e abrir painel de estudo.
-- Botao `Modo inclinado` / `Modo 2D superior`: alternar entre vista superior e vista inclinada.
-- No painel 2D, arraste os sliders para editar massa, velocidade de rotacao e velocidade de translacao.
-- `C`: soltar o foco do planeta selecionado.
-- `Esc`: sair.
+| Acao | Controle |
+| --- | --- |
+| Pausar/continuar | `Espaco` |
+| Aumentar/reduzir escala de tempo | `+` / `-` |
+| Reiniciar tempo, zoom e camera | `R` |
+| Soltar foco do planeta | `C` |
+| Sair | `Esc` |
+| Zoom | Scroll do mouse |
+| Mover camera | Setas |
+| Arrastar camera | Botao direito do mouse |
+| Selecionar planeta/Sol | Clique esquerdo |
+| Alternar modo 2D/inclinado | Botao no canto inferior direito |
+| Salvar print | `F2` |
 
-## O que ja existe
+Os prints sao salvos em:
 
-- Sol, planetas principais e Lua.
-- Periodos orbitais proporcionais em dias terrestres.
-- Orbitas inclinadas para facilitar a leitura visual.
-- Campo de estrelas, painel de tempo e indicador de pausa.
-- Selecao do Sol e dos planetas com camera acompanhando e painel de dados.
-- Modo 2D superior como vista inicial, com simulacao gravitacional real em 2D e orbitas elipticas.
-- Rastros dos planetas no modo 2D mostram o caminho real produzido pela simulacao; o modo inclinado usa orbitas em perspectiva, com profundidade visual e passagem na frente/atras do Sol.
-- No modo inclinado, planetas e satelites sao desenhados em ordem de profundidade para melhorar a oclusao visual.
-- No modo inclinado, planetas e luas variam levemente em brilho e tamanho conforme a profundidade visual.
-- No modo inclinado, a Lua tem orbita visual propria em tom claro e brilho discreto quando esta na frente da Terra.
-- No modo inclinado, os aneis de Saturno tambem respeitam profundidade, passando atras e na frente do planeta.
-- Infraestrutura inicial de shaders adicionada com um efeito `PassThrough` carregado pelo Content Pipeline.
-- Modo inclinado agora passa por `RenderTarget2D`, preparando targets de cena, orbitas, mascara de corpos e glow para composicao com shaders.
-- Orbitas traseiras do modo inclinado sao compostas por shader com mascara circular suave ao redor do Sol.
-- A orbita traseira da Lua no modo inclinado tambem usa shader de mascara suave ao redor da Terra.
-- A parte traseira dos aneis de Saturno no modo inclinado usa shader de mascara suave ao redor do planeta.
-- Sol do modo inclinado usa shader `SunGlow`, com disco grafico, gradiente simples, glow quente, textura superficial sutil e pulso discreto.
-- Planetas e luas no modo inclinado usam shader `ToonPlanet`, com volume de esfera guiado pela direcao do Sol e uma camada grafica 2D por cima, com hemisferio oculto em sombra solida, rampa de cinco tons iniciando no lado iluminado, textura mais presente na luz, contorno sutil e sombra desenhada.
-- Aneis de Saturno no modo inclinado usam shader procedural `SaturnRings`, com faixas, lacunas e textura radial.
-- Zoom do modo 2D permite afastar mais para estudar as distancias proporcionais reais.
-- No modo 2D, o painel dos planetas mostra somente massa, velocidade de rotacao e velocidade de translacao.
-- Editor 2D altera massa e velocidade de translacao diretamente na simulacao gravitacional.
-- Painel 2D tambem mostra leituras calculadas: velocidade atual, aceleracao, forca gravitacional, distancia ao centro de massa e energia orbital simplificada.
-- Motor gravitacional N-corpos: planetas tambem perturbam as orbitas uns dos outros.
-- Lua da Terra incluida no motor N-corpos, com massa, velocidade inicial, renderizacao e rastro proprios; sua distancia orbital e ampliada apenas no desenho para ficar visivel.
-- Filtro de centro de massa mostra o baricentro calculado com todos os corpos fisicos.
+```text
+image/
+```
+
+## Modos
+
+### Modo 2D Superior
+
+Modo voltado para simulacao e estudo fisico. Os corpos usam o motor gravitacional, com massas e velocidades editaveis.
+
+Inclui:
+
+- orbitas elipticas;
+- rastros reais da simulacao;
+- centro de massa;
+- editor de massa;
+- editor de velocidade de translacao;
+- leituras de velocidade, aceleracao, forca gravitacional, distancia ao centro de massa e energia orbital simplificada.
+
+### Modo Inclinado
+
+Modo voltado para leitura visual e apresentacao. Ele usa composicao com `RenderTarget2D` e shaders para criar uma cena mais cinematografica.
+
+Inclui:
+
+- orbitas em perspectiva;
+- passagem visual de corpos e orbitas na frente/atras do Sol;
+- labels discretos;
+- fase visivel estimada;
+- poeira solar;
+- poeira do plano orbital;
+- Via Lactea estilizada;
+- paralaxe no fundo;
+- aneis de Saturno e Urano;
+- cinturao principal de asteroides.
+
+## Shaders
+
+O projeto usa efeitos HLSL/MonoGame:
+
+- `SpaceBackground.fx`: fundo espacial com gradiente, estrelas, nebulosidade, Via Lactea e vinheta.
+- `SunGlow.fx`: disco e brilho estilizado do Sol.
+- `SolarDust.fx`: poeira radial solar e poeira do plano orbital.
+- `ToonPlanet.fx`: planetas com volume e acabamento desenhado.
+- `SaturnRings.fx`: aneis de Saturno e Urano com estilos diferentes.
+- `SoftCircleMask.fx`: mascara suave para profundidade visual atras de corpos.
+- `PassThrough.fx`: composicao final.
 
 ## Estrutura
 
-- `Source/Game1.cs`: ciclo principal do MonoGame e orquestracao.
-- `Source/Models`: registros de dados do Sol, planetas, estrelas e texturas.
-- `Source/Simulation`: estado do sistema, dados iniciais, calculo orbital visual e motor gravitacional 2D.
-- `Source/Camera`: zoom, pan e foco em corpos selecionados.
-- `Source/Rendering`: desenho do sistema solar e primitivas 2D.
-- `Source/UI`: HUD e painel de estudo.
-- `Source/Interaction`: selecao por clique.
+```text
+Source/
+  Camera/        Camera, zoom e foco
+  Interaction/   Selecao por clique
+  Models/        Dados de corpos e assets
+  Rendering/     Renderizacao, shaders e primitivas
+  Simulation/    Motor gravitacional e dados orbitais
+  UI/            HUD, painel de estudo e editor
+
+Content/
+  Effects/       Shaders .fx
+  UiFont.spritefont
+
+image/
+  Prints salvos com F2
+```
+
+## Objetivo
+
+Este projeto nao busca ser um simulador profissional de astronomia. A proposta e ser uma ferramenta de estudo visual: misturar conceitos reais, simulacao interativa e uma apresentacao bonita o suficiente para tornar o aprendizado mais intuitivo.

@@ -19,4 +19,7 @@ public sealed record CelestialBody(
     float RotationSpeedKmh,
     float OrbitalSpeedKms,
     string Summary,
-    bool HasRings = false);
+    float OrbitArgumentDegrees = 0f,
+    float OrbitPlaneTiltDegrees = 0f,
+    bool HasRings = false,
+    string RingStyle = "");

@@ -10,7 +10,7 @@ public sealed class CameraController
     private const float TopDownInitialZoom = 0.13f;
     private const float InclinedInitialZoom = 1f;
     private const float TopDownMinimumZoom = 0.05f;
-    private const float InclinedMinimumZoom = 0.35f;
+    private const float InclinedMinimumZoom = 0.24f;
 
     public float Zoom { get; private set; } = TopDownInitialZoom;
     public Vector2 Offset { get; private set; }

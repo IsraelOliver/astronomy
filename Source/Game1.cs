@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.IO;
 
 namespace Astronomia;
 
@@ -17,6 +19,7 @@ public class Game1 : Game
 
     private KeyboardState _previousKeyboard;
     private MouseState _previousMouse;
+    private bool _screenshotRequested;
 
     public Game1()
     {
@@ -45,13 +48,15 @@ public class Game1 : Game
             TextureFactory.CreateCircle(GraphicsDevice, 96));
         var shaders = new ShaderAssets(
             Content.Load<Effect>("Effects/PassThrough"),
+            Content.Load<Effect>("Effects/SpaceBackground"),
             Content.Load<Effect>("Effects/SoftCircleMask"),
             Content.Load<Effect>("Effects/SunGlow"),
+            Content.Load<Effect>("Effects/SolarDust"),
             Content.Load<Effect>("Effects/ToonPlanet"),
             Content.Load<Effect>("Effects/SaturnRings"));
 
         var primitives = new PrimitiveRenderer(_spriteBatch, textures);
-        _solarSystemRenderer = new SolarSystemRenderer(_spriteBatch, textures, shaders, primitives);
+        _solarSystemRenderer = new SolarSystemRenderer(_spriteBatch, textures, shaders, primitives, font);
         _hudRenderer = new HudRenderer(_spriteBatch, font, primitives);
         _studyPanelRenderer = new StudyPanelRenderer(_spriteBatch, font, primitives);
     }
@@ -96,7 +101,41 @@ public class Game1 : Game
 
         _spriteBatch.End();
 
+        if (_screenshotRequested)
+        {
+            SaveScreenshot();
+            _screenshotRequested = false;
+        }
+
         base.Draw(gameTime);
+    }
+
+    private void SaveScreenshot()
+    {
+        var viewport = GraphicsDevice.Viewport;
+        using var screenshot = new Texture2D(GraphicsDevice, viewport.Width, viewport.Height, false, SurfaceFormat.Color);
+        var pixels = new Color[viewport.Width * viewport.Height];
+        GraphicsDevice.GetBackBufferData(pixels);
+        screenshot.SetData(pixels);
+
+        var imageDirectory = Path.Combine(GetProjectRootDirectory(), "image");
+        Directory.CreateDirectory(imageDirectory);
+
+        var fileName = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png";
+        var path = Path.Combine(imageDirectory, fileName);
+
+        using var stream = File.Create(path);
+        screenshot.SaveAsPng(stream, viewport.Width, viewport.Height);
+    }
+
+    private static string GetProjectRootDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Astronomia.csproj")))
+            directory = directory.Parent;
+
+        return directory?.FullName ?? AppContext.BaseDirectory;
     }
 
     private void HandleKeyboardShortcuts(KeyboardState keyboard)
@@ -112,6 +151,9 @@ public class Game1 : Game
 
         if (WasPressed(keyboard, Keys.C))
             _solarSystem.ClearSelection();
+
+        if (WasPressed(keyboard, Keys.F2))
+            _screenshotRequested = true;
 
         if (WasPressed(keyboard, Keys.OemPlus) || WasPressed(keyboard, Keys.Add))
             _solarSystem.IncreaseTimeScale();

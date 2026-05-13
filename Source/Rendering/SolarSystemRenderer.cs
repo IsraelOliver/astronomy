@@ -8,20 +8,23 @@ namespace Astronomia;
 public sealed class SolarSystemRenderer
 {
     private static readonly Color SpaceColor = new(5, 8, 18);
+    private static readonly AsteroidBeltPoint[] MainAsteroidBelt = CreateMainAsteroidBelt();
 
     private readonly SpriteBatch _spriteBatch;
     private readonly TextureAssets _textures;
     private readonly ShaderAssets _shaders;
     private readonly PrimitiveRenderer _primitives;
+    private readonly SpriteFont _font;
     private readonly InclinedRenderTargets _inclinedTargets = new();
     private float _shaderTime;
 
-    public SolarSystemRenderer(SpriteBatch spriteBatch, TextureAssets textures, ShaderAssets shaders, PrimitiveRenderer primitives)
+    public SolarSystemRenderer(SpriteBatch spriteBatch, TextureAssets textures, ShaderAssets shaders, PrimitiveRenderer primitives, SpriteFont font)
     {
         _spriteBatch = spriteBatch;
         _textures = textures;
         _shaders = shaders;
         _primitives = primitives;
+        _font = font;
     }
 
     public static Color BackgroundColor => SpaceColor;
@@ -29,8 +32,10 @@ public sealed class SolarSystemRenderer
     public void Draw(SolarSystemState solarSystem, Vector2 center, float zoom, Viewport viewport)
     {
         if (_shaders.PassThrough is null ||
+            _shaders.SpaceBackground is null ||
             _shaders.SoftCircleMask is null ||
             _shaders.SunGlow is null ||
+            _shaders.SolarDust is null ||
             _shaders.ToonPlanet is null ||
             _shaders.SaturnRings is null)
             return;
@@ -46,7 +51,7 @@ public sealed class SolarSystemRenderer
         }
 
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
-        DrawStars(solarSystem);
+        DrawStars(solarSystem, viewport, Vector2.Zero);
         DrawTrails(solarSystem, center, zoom, orbitTilt);
         DrawSun(solarSystem, sunPosition, zoom);
         DrawPlanets(solarSystem, center, zoom, orbitTilt);
@@ -79,10 +84,15 @@ public sealed class SolarSystemRenderer
         graphicsDevice.SetRenderTarget(_inclinedTargets.Scene);
         graphicsDevice.Clear(SpaceColor);
 
+        var cameraOffset = GetCameraOffset(center, viewport);
+        DrawSpaceBackground(viewport, solarSystem.SimulationDays, cameraOffset);
+
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
-        DrawStars(solarSystem);
+        DrawStars(solarSystem, viewport, cameraOffset * 0.12f);
         _spriteBatch.End();
 
+        DrawOrbitalPlaneDust(solarSystem, sunPosition, zoom, viewport);
+        DrawSolarDust(solarSystem, sunPosition, zoom, viewport);
         DrawSunShaderGlow(solarSystem, sunPosition, zoom, viewport);
 
         ConfigureSoftCircleMask(viewport, sunPosition, (solarSystem.Sun.VisualRadius + 2f) * zoom, 12f);
@@ -94,7 +104,7 @@ public sealed class SolarSystemRenderer
         DrawMaskedBackSatelliteOrbitsForPlanets(solarSystem, center, zoom, viewport, orbitTilt, parentInFront: false);
 
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
-        DrawInclinedPlanets(solarSystem, center, zoom, orbitTilt, drawFront: false);
+        DrawInclinedDepthBodies(solarSystem, center, zoom, orbitTilt, drawFront: false);
         DrawStylizedSunCore(solarSystem, sunPosition, zoom, viewport);
         DrawInclinedOrbits(solarSystem, center, zoom, orbitTilt, drawFront: true);
         _spriteBatch.End();
@@ -103,7 +113,8 @@ public sealed class SolarSystemRenderer
         DrawMaskedBackSatelliteOrbitsForPlanets(solarSystem, center, zoom, viewport, orbitTilt, parentInFront: true);
 
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
-        DrawInclinedPlanets(solarSystem, center, zoom, orbitTilt, drawFront: true);
+        DrawInclinedDepthBodies(solarSystem, center, zoom, orbitTilt, drawFront: true);
+        DrawInclinedPlanetLabels(solarSystem, center, zoom);
         _spriteBatch.End();
 
         graphicsDevice.SetRenderTarget(null);
@@ -112,6 +123,23 @@ public sealed class SolarSystemRenderer
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp, effect: _shaders.PassThrough);
         _spriteBatch.Draw(_inclinedTargets.Scene, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.White);
         _spriteBatch.End();
+    }
+
+    private void DrawSpaceBackground(Viewport viewport, float time, Vector2 cameraOffset)
+    {
+        ConfigureSpaceBackground(viewport, time, cameraOffset);
+
+        _spriteBatch.Begin(samplerState: SamplerState.LinearClamp, effect: _shaders.SpaceBackground);
+        _spriteBatch.Draw(_textures.Pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.White);
+        _spriteBatch.End();
+    }
+
+    private void ConfigureSpaceBackground(Viewport viewport, float time, Vector2 cameraOffset)
+    {
+        _shaders.SpaceBackground.Parameters["ViewportSize"]?.SetValue(new Vector2(viewport.Width, viewport.Height));
+        _shaders.SpaceBackground.Parameters["CameraOffset"]?.SetValue(cameraOffset);
+        _shaders.SpaceBackground.Parameters["Time"]?.SetValue(time);
+        _shaders.SpaceBackground.Parameters["Intensity"]?.SetValue(1f);
     }
 
     private void DrawSunShaderGlow(SolarSystemState solarSystem, Vector2 sunPosition, float zoom, Viewport viewport)
@@ -131,6 +159,34 @@ public sealed class SolarSystemRenderer
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp, blendState: BlendState.Additive);
         _spriteBatch.Draw(_inclinedTargets.Glow, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.White);
         _spriteBatch.End();
+    }
+
+    private void DrawSolarDust(SolarSystemState solarSystem, Vector2 sunPosition, float zoom, Viewport viewport)
+    {
+        ConfigureSolarDust(viewport, sunPosition, solarSystem.Sun.VisualRadius * zoom, solarSystem.SimulationDays, orbitalPlaneOnly: false, intensity: 0.55f);
+
+        _spriteBatch.Begin(samplerState: SamplerState.LinearClamp, blendState: BlendState.Additive, effect: _shaders.SolarDust);
+        _spriteBatch.Draw(_textures.Pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.White);
+        _spriteBatch.End();
+    }
+
+    private void DrawOrbitalPlaneDust(SolarSystemState solarSystem, Vector2 sunPosition, float zoom, Viewport viewport)
+    {
+        ConfigureSolarDust(viewport, sunPosition, solarSystem.Sun.VisualRadius * zoom, solarSystem.SimulationDays, orbitalPlaneOnly: true, intensity: 0.62f);
+
+        _spriteBatch.Begin(samplerState: SamplerState.LinearClamp, blendState: BlendState.Additive, effect: _shaders.SolarDust);
+        _spriteBatch.Draw(_textures.Pixel, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.White);
+        _spriteBatch.End();
+    }
+
+    private void ConfigureSolarDust(Viewport viewport, Vector2 sunPosition, float sunRadius, float time, bool orbitalPlaneOnly, float intensity)
+    {
+        _shaders.SolarDust.Parameters["ViewportSize"]?.SetValue(new Vector2(viewport.Width, viewport.Height));
+        _shaders.SolarDust.Parameters["SunCenter"]?.SetValue(sunPosition);
+        _shaders.SolarDust.Parameters["SunRadius"]?.SetValue(sunRadius);
+        _shaders.SolarDust.Parameters["Time"]?.SetValue(time);
+        _shaders.SolarDust.Parameters["Intensity"]?.SetValue(intensity);
+        _shaders.SolarDust.Parameters["OrbitalPlaneOnly"]?.SetValue(orbitalPlaneOnly ? 1f : 0f);
     }
 
     private void DrawStylizedSunCore(SolarSystemState solarSystem, Vector2 sunPosition, float zoom, Viewport viewport)
@@ -239,7 +295,7 @@ public sealed class SolarSystemRenderer
             graphicsDevice.Clear(Color.Transparent);
 
             _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
-            DrawPerspectiveRings(planetPosition, planet.Radius, zoom, orbitTilt, drawFront: false);
+            DrawPerspectiveRings(planet, planetPosition, zoom, orbitTilt, drawFront: false, center);
             _spriteBatch.End();
 
             graphicsDevice.SetRenderTarget(_inclinedTargets.Scene);
@@ -252,16 +308,36 @@ public sealed class SolarSystemRenderer
         }
     }
 
-    private void DrawStars(SolarSystemState solarSystem)
+    private void DrawStars(SolarSystemState solarSystem, Viewport viewport, Vector2 parallaxOffset)
     {
         foreach (var star in solarSystem.Stars)
         {
             var alpha = (byte)(255 * star.Brightness);
+            var position = WrapScreenPosition(star.Position + parallaxOffset, viewport);
             _spriteBatch.Draw(
                 _textures.Pixel,
-                new Rectangle((int)star.Position.X, (int)star.Position.Y, (int)star.Size, (int)star.Size),
+                new Rectangle((int)position.X, (int)position.Y, (int)star.Size, (int)star.Size),
                 new Color(alpha, alpha, alpha, alpha));
         }
+    }
+
+    private static Vector2 GetCameraOffset(Vector2 center, Viewport viewport)
+    {
+        return center - new Vector2(viewport.Width / 2f, viewport.Height / 2f);
+    }
+
+    private static Vector2 WrapScreenPosition(Vector2 position, Viewport viewport)
+    {
+        return new Vector2(Wrap(position.X, viewport.Width), Wrap(position.Y, viewport.Height));
+    }
+
+    private static float Wrap(float value, float size)
+    {
+        if (size <= 0f)
+            return value;
+
+        value %= size;
+        return value < 0f ? value + size : value;
     }
 
     private void DrawTrails(SolarSystemState solarSystem, Vector2 center, float zoom, float orbitTilt)
@@ -283,52 +359,85 @@ public sealed class SolarSystemRenderer
         {
             DrawPerspectiveOrbit(
                 center,
-                planet.OrbitRadius,
+                planet,
                 zoom,
                 orbitTilt,
                 0.72f,
                 1.35f,
                 drawFront,
-                center);
+                center,
+                GetOrbitGroupColors(planet));
         }
 
     }
 
+    private Vector2 GetAsteroidBeltPosition(AsteroidBeltPoint asteroid, Vector2 center, float zoom, float orbitTilt)
+    {
+        var angle = asteroid.Angle + _shaderTime * asteroid.DriftSpeed;
+        var wobble = MathF.Sin(_shaderTime * asteroid.WobbleSpeed + asteroid.WobblePhase) * asteroid.WobbleRadius;
+        var radius = (asteroid.Radius + wobble) * zoom;
+
+        return center + new Vector2(
+            MathF.Cos(angle) * radius,
+            MathF.Sin(angle) * radius * orbitTilt);
+    }
+
+    private void DrawAsteroidBeltPoint(AsteroidBeltPoint asteroid, Vector2 position, Vector2 center, float zoom, float orbitTilt)
+    {
+        var depthRange = 184f * zoom * orbitTilt;
+        var depth = GetScreenDepth(position, center, MathF.Max(16f, depthRange));
+        var alpha = asteroid.Alpha * MathHelper.Lerp(0.25f, 0.92f, depth);
+        var size = MathF.Max(1f, asteroid.Size * MathHelper.Lerp(0.72f, 1.22f, depth) * MathF.Sqrt(MathF.Max(zoom, 0.3f)));
+        var tint = Color.Lerp(new Color(86, 78, 71), new Color(194, 172, 130), depth);
+
+        _spriteBatch.Draw(
+            _textures.Pixel,
+            new Rectangle((int)(position.X - size * 0.5f), (int)(position.Y - size * 0.5f), Math.Max(1, (int)size), Math.Max(1, (int)size)),
+            WithAlpha(tint, alpha));
+    }
+
     private void DrawPerspectiveOrbit(
         Vector2 center,
-        float radius,
+        CelestialBody planet,
         float zoom,
         float orbitTilt,
         float maxAlpha,
         float maxThickness,
         bool drawFront,
-        Vector2 depthCenter)
+        Vector2 depthCenter,
+        OrbitGroupColors orbitColors)
     {
         const int segments = 144;
-        var previous = OrbitCalculator.GetOrbitPoint(center, radius, 0f, zoom, orbitTilt);
+        var previous = OrbitCalculator.GetOrbitPoint(center, planet, 0f, zoom, orbitTilt);
 
         for (var i = 1; i <= segments; i++)
         {
             var angle = MathHelper.TwoPi * i / segments;
-            var previousAngle = MathHelper.TwoPi * (i - 1) / segments;
-            var middleAngle = (previousAngle + angle) * 0.5f;
-            var current = OrbitCalculator.GetOrbitPoint(center, radius, angle, zoom, orbitTilt);
+            var current = OrbitCalculator.GetOrbitPoint(center, planet, angle, zoom, orbitTilt);
             var midpoint = (previous + current) * 0.5f;
 
             if (IsInFrontOfSun(midpoint, depthCenter) == drawFront)
-                DrawPerspectiveOrbitSegment(previous, current, middleAngle, maxAlpha, maxThickness);
+                DrawPerspectiveOrbitSegment(previous, current, midpoint, depthCenter, planet.OrbitRadius * zoom, maxAlpha, maxThickness, orbitColors);
 
             previous = current;
         }
     }
 
-    private void DrawPerspectiveOrbitSegment(Vector2 start, Vector2 end, float angle, float maxAlpha, float maxThickness)
+    private void DrawPerspectiveOrbitSegment(
+        Vector2 start,
+        Vector2 end,
+        Vector2 midpoint,
+        Vector2 depthCenter,
+        float depthRange,
+        float maxAlpha,
+        float maxThickness,
+        OrbitGroupColors orbitColors)
     {
-        var frontDepth = (MathF.Sin(angle) + 1f) * 0.5f;
+        var frontDepth = GetScreenDepth(midpoint, depthCenter, MathF.Max(12f, depthRange * OrbitCalculator.InclinedOrbitTilt));
         var glow = MathF.Pow(frontDepth, 0.72f);
         var alpha = MathHelper.Lerp(0.12f, maxAlpha, glow);
         var thickness = MathHelper.Lerp(0.55f, maxThickness, glow);
-        var color = Color.Lerp(new Color(44, 61, 108), new Color(156, 195, 255), glow);
+        var color = Color.Lerp(orbitColors.BackColor, orbitColors.FrontColor, glow);
 
         _primitives.DrawLine(start, end, WithAlpha(color, alpha * 0.25f), thickness + 1.8f);
         _primitives.DrawLine(start, end, WithAlpha(color, alpha), thickness);
@@ -353,28 +462,69 @@ public sealed class SolarSystemRenderer
         foreach (var planet in solarSystem.Planets)
         {
             var position = BodyPositionService.GetPlanetPosition(solarSystem, center, planet, zoom);
-            DrawPlanet(solarSystem, planet, position, zoom, orbitTilt);
+            DrawPlanet(solarSystem, planet, position, center, zoom, orbitTilt);
         }
     }
 
-    private void DrawInclinedPlanets(SolarSystemState solarSystem, Vector2 center, float zoom, float orbitTilt, bool drawFront)
+    private void DrawInclinedDepthBodies(SolarSystemState solarSystem, Vector2 center, float zoom, float orbitTilt, bool drawFront)
     {
-        var planetsToDraw = new List<(CelestialBody Planet, Vector2 Position)>();
+        var items = new List<InclinedDepthItem>();
 
         foreach (var planet in solarSystem.Planets)
         {
             var position = BodyPositionService.GetPlanetPosition(solarSystem, center, planet, zoom);
 
             if (IsInFrontOfSun(position, center) == drawFront)
-                planetsToDraw.Add((planet, position));
+                items.Add(InclinedDepthItem.ForPlanet(position, planet));
         }
 
-        planetsToDraw.Sort((left, right) => left.Position.Y.CompareTo(right.Position.Y));
-
-        foreach (var item in planetsToDraw)
+        foreach (var asteroid in MainAsteroidBelt)
         {
-            DrawInclinedPlanetSystem(solarSystem, item.Planet, item.Position, center, zoom, orbitTilt);
+            var position = GetAsteroidBeltPosition(asteroid, center, zoom, orbitTilt);
+
+            if (IsInFrontOfSun(position, center) == drawFront)
+                items.Add(InclinedDepthItem.ForAsteroid(position, asteroid));
         }
+
+        items.Sort((left, right) => left.Position.Y.CompareTo(right.Position.Y));
+
+        foreach (var item in items)
+        {
+            if (item.IsAsteroid)
+                DrawAsteroidBeltPoint(item.Asteroid, item.Position, center, zoom, orbitTilt);
+            else if (item.Planet is not null)
+                DrawInclinedPlanetSystem(solarSystem, item.Planet, item.Position, center, zoom, orbitTilt);
+        }
+    }
+
+    private void DrawInclinedPlanetLabels(SolarSystemState solarSystem, Vector2 center, float zoom)
+    {
+        foreach (var planet in solarSystem.Planets)
+        {
+            var position = BodyPositionService.GetPlanetPosition(solarSystem, center, planet, zoom);
+            var screenRadius = planet.Radius * GetPlanetVisualZoom(planet, position, center, zoom);
+            var isSelected = planet == solarSystem.SelectedPlanet;
+
+            if (!isSelected && screenRadius < 9.5f)
+                continue;
+
+            DrawPlanetLabel(planet.Name, position, screenRadius, isSelected, planet.Color);
+        }
+    }
+
+    private void DrawPlanetLabel(string text, Vector2 bodyPosition, float bodyRadius, bool isSelected, Color accentColor)
+    {
+        var textSize = _font.MeasureString(text);
+        var labelPosition = bodyPosition + new Vector2(bodyRadius + 8f, -bodyRadius - 18f);
+        var lineStart = bodyPosition + new Vector2(bodyRadius * 0.58f, -bodyRadius * 0.58f);
+        var lineEnd = labelPosition + new Vector2(-4f, textSize.Y * 0.55f);
+        var alpha = isSelected ? 0.95f : 0.58f;
+        var textColor = WithAlpha(new Color(222, 232, 248), alpha);
+        var lineColor = WithAlpha(ScaleColor(accentColor, 1.25f), alpha * 0.72f);
+
+        _primitives.DrawLine(lineStart, lineEnd, lineColor, isSelected ? 1.25f : 0.85f);
+        _spriteBatch.DrawString(_font, text, labelPosition + new Vector2(1f, 1f), WithAlpha(SpaceColor, alpha * 0.88f));
+        _spriteBatch.DrawString(_font, text, labelPosition, textColor);
     }
 
     private void DrawInclinedPlanetSystem(
@@ -386,10 +536,11 @@ public sealed class SolarSystemRenderer
         float orbitTilt)
     {
         DrawInclinedSatellitesForPlanet(solarSystem, planet, planetPosition, center, zoom, orbitTilt, drawFront: false);
+
         DrawPlanetBodyWithDepth(planet, planetPosition, center, zoom);
 
         if (planet.HasRings)
-            DrawPerspectiveRings(planetPosition, planet.Radius, zoom, orbitTilt, drawFront: true);
+            DrawPerspectiveRings(planet, planetPosition, zoom, orbitTilt, drawFront: true, center);
 
         DrawInclinedSatellitesForPlanet(solarSystem, planet, planetPosition, center, zoom, orbitTilt, drawFront: true);
 
@@ -397,12 +548,17 @@ public sealed class SolarSystemRenderer
             DrawSelectionMarker(planetPosition, planet.Radius, zoom);
     }
 
-    private void DrawPlanet(SolarSystemState solarSystem, CelestialBody planet, Vector2 position, float zoom, float orbitTilt)
+    private void DrawPlanet(SolarSystemState solarSystem, CelestialBody planet, Vector2 position, Vector2 center, float zoom, float orbitTilt)
     {
+        var sunPosition = BodyPositionService.GetSunPosition(solarSystem, center, zoom);
+
+        if (planet.HasRings)
+            DrawRings(planet, position, zoom, orbitTilt, drawFront: false, sunPosition);
+
         DrawPlanetBody(planet, position, zoom);
 
         if (planet.HasRings)
-            DrawRings(position, planet.Radius, zoom, orbitTilt);
+            DrawRings(planet, position, zoom, orbitTilt, drawFront: true, sunPosition);
 
         if (planet == solarSystem.SelectedPlanet)
             DrawSelectionMarker(position, planet.Radius, zoom);
@@ -587,7 +743,8 @@ public sealed class SolarSystemRenderer
         var visualZoom = GetPlanetVisualZoom(planet, position, depthCenter, zoom);
         var depth = GetPlanetDepth(planet, position, depthCenter, zoom);
         var color = Color.Lerp(ScaleColor(planet.Color, 0.58f), ScaleColor(planet.Color, 1.08f), depth);
-        DrawToonPlanet(position, planet.Radius, visualZoom, color, depthCenter, 1.0f);
+        var atmosphere = GetPlanetAtmosphere(planet, color);
+        DrawToonPlanet(position, planet.Radius, visualZoom, color, atmosphere.Color, depthCenter, atmosphere.Intensity, atmosphere.Scale);
     }
 
     private static float GetPlanetDepth(CelestialBody planet, Vector2 position, Vector2 depthCenter, float zoom)
@@ -608,7 +765,7 @@ public sealed class SolarSystemRenderer
         var depth = GetScreenDepth(position, depthCenter, depthRange);
         var visualZoom = zoom * MathHelper.Lerp(0.82f, 1.12f, depth);
         var color = Color.Lerp(ScaleColor(satellite.Color, 0.6f), ScaleColor(satellite.Color, 1.06f), depth);
-        DrawToonPlanet(position, satellite.Radius, visualZoom, color, lightCenter, 0.72f);
+        DrawToonPlanet(position, satellite.Radius, visualZoom, color, ScaleColor(satellite.Color, 1.08f), lightCenter, 0.18f, 1.18f);
     }
 
     private void DrawToonPlanet(
@@ -616,11 +773,12 @@ public sealed class SolarSystemRenderer
         float radius,
         float zoom,
         Color baseColor,
+        Color atmosphereColor,
         Vector2 lightCenter,
-        float atmosphereIntensity)
+        float atmosphereIntensity,
+        float atmosphereScale)
     {
         var planetRadius = MathF.Max(1.5f, radius * zoom);
-        var atmosphereScale = 1.42f;
         var atmosphereRadius = planetRadius * atmosphereScale;
         var destination = new Rectangle(
             (int)(position.X - atmosphereRadius),
@@ -632,7 +790,7 @@ public sealed class SolarSystemRenderer
         if (lightDirection.LengthSquared() <= 0.0001f)
             lightDirection = new Vector3(0f, 0f, 1f);
 
-        ConfigureToonPlanet(baseColor, lightDirection, 1f / atmosphereScale, atmosphereIntensity);
+        ConfigureToonPlanet(baseColor, atmosphereColor, lightDirection, 1f / atmosphereScale, atmosphereIntensity);
 
         _spriteBatch.End();
         _spriteBatch.Begin(
@@ -649,6 +807,7 @@ public sealed class SolarSystemRenderer
 
     private void ConfigureToonPlanet(
         Color baseColor,
+        Color atmosphereColor,
         Vector3 lightDirection,
         float planetRadius,
         float atmosphereIntensity)
@@ -656,16 +815,11 @@ public sealed class SolarSystemRenderer
         lightDirection.Normalize();
 
         var lightColor = MixColor(ScaleColor(baseColor, 1.34f), new Color(255, 232, 170), 0.12f);
-        var midLightColor = MixColor(ScaleColor(baseColor, 1.14f), new Color(255, 222, 160), 0.06f);
-        var midShadowColor = MixColor(ScaleColor(baseColor, 0.66f), new Color(58, 59, 88), 0.08f);
         var shadowColor = MixColor(ScaleColor(baseColor, 0.42f), new Color(28, 31, 55), 0.16f);
-        var atmosphereColor = ScaleColor(lightColor, 1.1f);
         var outlineColor = MixColor(shadowColor, SpaceColor, 0.32f);
 
         _shaders.ToonPlanet.Parameters["LightColor"]?.SetValue(lightColor.ToVector4());
-        _shaders.ToonPlanet.Parameters["MidLightColor"]?.SetValue(midLightColor.ToVector4());
         _shaders.ToonPlanet.Parameters["BaseColor"]?.SetValue(baseColor.ToVector4());
-        _shaders.ToonPlanet.Parameters["MidShadowColor"]?.SetValue(midShadowColor.ToVector4());
         _shaders.ToonPlanet.Parameters["ShadowColor"]?.SetValue(shadowColor.ToVector4());
         _shaders.ToonPlanet.Parameters["AtmosphereColor"]?.SetValue(atmosphereColor.ToVector4());
         _shaders.ToonPlanet.Parameters["OutlineColor"]?.SetValue(outlineColor.ToVector4());
@@ -674,15 +828,32 @@ public sealed class SolarSystemRenderer
         _shaders.ToonPlanet.Parameters["AtmosphereIntensity"]?.SetValue(atmosphereIntensity);
         _shaders.ToonPlanet.Parameters["LightThreshold"]?.SetValue(0.24f);
         _shaders.ToonPlanet.Parameters["ShadowThreshold"]?.SetValue(-0.18f);
-        _shaders.ToonPlanet.Parameters["BandSoftness"]?.SetValue(0.035f);
-        _shaders.ToonPlanet.Parameters["BandEdge0"]?.SetValue(0.56f);
-        _shaders.ToonPlanet.Parameters["BandEdge1"]?.SetValue(0.68f);
-        _shaders.ToonPlanet.Parameters["BandEdge2"]?.SetValue(0.82f);
-        _shaders.ToonPlanet.Parameters["BandEdge3"]?.SetValue(0.94f);
+        _shaders.ToonPlanet.Parameters["BandSoftness"]?.SetValue(0.025f);
+        _shaders.ToonPlanet.Parameters["BandEdge0"]?.SetValue(0.54f);
+        _shaders.ToonPlanet.Parameters["BandEdge1"]?.SetValue(0.61f);
+        _shaders.ToonPlanet.Parameters["BandEdge2"]?.SetValue(0.0f);
+        _shaders.ToonPlanet.Parameters["BandEdge3"]?.SetValue(0.86f);
         _shaders.ToonPlanet.Parameters["TextureOverlayStrength"]?.SetValue(0.11f);
         _shaders.ToonPlanet.Parameters["OutlineStrength"]?.SetValue(0.11f);
         _shaders.ToonPlanet.Parameters["NoiseScale"]?.SetValue(6.2f);
         _shaders.ToonPlanet.Parameters["Time"]?.SetValue(_shaderTime);
+    }
+
+    private static (Color Color, float Intensity, float Scale) GetPlanetAtmosphere(CelestialBody planet, Color visualColor)
+    {
+        return planet.Name switch
+        {
+            "Mercurio" => (ScaleColor(visualColor, 0.8f), 0.06f, 1.08f),
+            "Venus" => (new Color(255, 196, 92), 1.55f, 1.58f),
+            "Terra" => (new Color(92, 184, 255), 1.45f, 1.5f),
+            "Marte" => (new Color(255, 112, 76), 0.34f, 1.22f),
+            "Jupiter" => (new Color(255, 204, 143), 0.92f, 1.36f),
+            "Saturno" => (new Color(255, 224, 157), 0.98f, 1.34f),
+            "Urano" => (new Color(122, 247, 255), 1.36f, 1.48f),
+            "Netuno" => (new Color(91, 145, 255), 1.24f, 1.46f),
+            "Plutao" => (new Color(206, 166, 128), 0.18f, 1.16f),
+            _ => (ScaleColor(visualColor, 1.08f), 0.45f, 1.28f)
+        };
     }
 
     private static Vector3 GetInclinedLightDirection(Vector2 bodyPosition, Vector2 lightCenter)
@@ -718,28 +889,43 @@ public sealed class SolarSystemRenderer
         return Color.Lerp(from, to, MathHelper.Clamp(amount, 0f, 1f));
     }
 
-    private void DrawRings(Vector2 position, float planetRadius, float zoom, float orbitTilt)
+    private void DrawRings(CelestialBody planet, Vector2 position, float zoom, float orbitTilt, bool drawFront, Vector2 lightCenter)
     {
-        _primitives.DrawOrbit(position, planetRadius * 1.6f, zoom, orbitTilt, new Color(205, 185, 140, 180));
-        _primitives.DrawOrbit(position, planetRadius * 2.05f, zoom, orbitTilt, new Color(173, 154, 115, 140));
+        DrawRingShader(planet, position, zoom, orbitTilt, drawFront, lightCenter);
     }
 
-    private void DrawPerspectiveRings(Vector2 position, float planetRadius, float zoom, float orbitTilt, bool drawFront)
+    private void DrawPerspectiveRings(CelestialBody planet, Vector2 position, float zoom, float orbitTilt, bool drawFront, Vector2 lightCenter)
     {
-        DrawSaturnRingShader(position, planetRadius, zoom, orbitTilt, drawFront);
+        DrawRingShader(planet, position, zoom, orbitTilt, drawFront, lightCenter);
     }
 
-    private void DrawSaturnRingShader(Vector2 position, float planetRadius, float zoom, float orbitTilt, bool drawFront)
+    private void DrawRingShader(CelestialBody planet, Vector2 position, float zoom, float orbitTilt, bool drawFront, Vector2 lightCenter)
     {
+        var isUranus = IsUranusRingStyle(planet);
+        var planetRadius = planet.Radius;
         var outerRadius = planetRadius * zoom * 2.14f;
-        var ringTilt = MathF.Max(0.12f, orbitTilt * 0.82f);
+        var ringTilt = isUranus
+            ? MathHelper.Lerp(0.24f, 0.38f, orbitTilt)
+            : MathF.Max(0.12f, orbitTilt * 0.82f);
+        var ringRotation = isUranus ? MathHelper.PiOver2 + 0.12f : 0f;
         var destination = new Rectangle(
             (int)(position.X - outerRadius),
             (int)(position.Y - outerRadius),
             (int)(outerRadius * 2f),
             (int)(outerRadius * 2f));
 
-        ConfigureSaturnRings(ringTilt, 0.48f, 0.98f, drawFront, drawFront ? 0.78f : 0.48f);
+        var lightDirection = GetInclinedLightDirection(position, lightCenter);
+        var planetShadowRadius = planetRadius * zoom / MathF.Max(outerRadius, 0.001f);
+        ConfigureSaturnRings(
+            ringTilt,
+            isUranus ? 0.54f : 0.48f,
+            isUranus ? 0.96f : 0.98f,
+            drawFront,
+            isUranus ? 0.72f : drawFront ? 0.78f : 0.62f,
+            lightDirection,
+            planetShadowRadius,
+            isUranus ? 1f : 0f,
+            ringRotation);
 
         _spriteBatch.End();
         _spriteBatch.Begin(
@@ -754,14 +940,108 @@ public sealed class SolarSystemRenderer
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
     }
 
-    private void ConfigureSaturnRings(float ringTilt, float innerRadius, float outerRadius, bool drawFront, float maxAlpha)
+    private void ConfigureSaturnRings(
+        float ringTilt,
+        float innerRadius,
+        float outerRadius,
+        bool drawFront,
+        float maxAlpha,
+        Vector3 lightDirection,
+        float planetShadowRadius,
+        float ringStyle,
+        float ringRotation)
     {
         _shaders.SaturnRings.Parameters["RingTilt"]?.SetValue(ringTilt);
         _shaders.SaturnRings.Parameters["InnerRadius"]?.SetValue(innerRadius);
         _shaders.SaturnRings.Parameters["OuterRadius"]?.SetValue(outerRadius);
         _shaders.SaturnRings.Parameters["DrawFront"]?.SetValue(drawFront ? 1f : 0f);
         _shaders.SaturnRings.Parameters["MaxAlpha"]?.SetValue(maxAlpha);
+        _shaders.SaturnRings.Parameters["LightDirection"]?.SetValue(lightDirection);
+        _shaders.SaturnRings.Parameters["PlanetShadowRadius"]?.SetValue(planetShadowRadius);
+        _shaders.SaturnRings.Parameters["PlanetShadowStrength"]?.SetValue(0.88f);
+        _shaders.SaturnRings.Parameters["RingStyle"]?.SetValue(ringStyle);
+        _shaders.SaturnRings.Parameters["RingRotation"]?.SetValue(ringRotation);
     }
+
+    private static bool IsUranusRingStyle(CelestialBody planet)
+    {
+        return string.Equals(planet.RingStyle, "Uranus", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static OrbitGroupColors GetOrbitGroupColors(CelestialBody planet)
+    {
+        if (planet.Name is "Mercurio" or "Venus" or "Terra" or "Marte")
+            return new OrbitGroupColors(new Color(76, 68, 96), new Color(255, 169, 116));
+
+        if (planet.Name is "Jupiter" or "Saturno")
+            return new OrbitGroupColors(new Color(72, 68, 86), new Color(245, 211, 135));
+
+        if (planet.Name is "Urano" or "Netuno")
+            return new OrbitGroupColors(new Color(48, 74, 104), new Color(124, 221, 255));
+
+        if (planet.Name == "Plutao")
+            return new OrbitGroupColors(new Color(70, 76, 94), new Color(184, 190, 202));
+
+        return new OrbitGroupColors(new Color(44, 61, 108), new Color(156, 195, 255));
+    }
+
+    private static AsteroidBeltPoint[] CreateMainAsteroidBelt()
+    {
+        const int count = 340;
+        var points = new AsteroidBeltPoint[count];
+        var random = new Random(73);
+
+        for (var i = 0; i < count; i++)
+        {
+            var angle = MathHelper.TwoPi * i / count + RandomRange(random, -0.018f, 0.018f);
+            var clump = MathF.Sin(angle * 5.0f + 0.8f) * 0.5f + MathF.Sin(angle * 11.0f + 2.1f) * 0.28f;
+            var radius = RandomRange(random, 158f, 196f) + clump * 8f;
+            var size = RandomRange(random, 1.0f, 2.3f);
+            var alpha = RandomRange(random, 0.16f, 0.48f);
+            var driftSpeed = RandomRange(random, 0.000018f, 0.000042f);
+            var wobbleRadius = RandomRange(random, 0.4f, 2.2f);
+            var wobbleSpeed = RandomRange(random, 0.002f, 0.006f);
+            var wobblePhase = RandomRange(random, 0f, MathHelper.TwoPi);
+
+            points[i] = new AsteroidBeltPoint(angle, radius, size, alpha, driftSpeed, wobbleRadius, wobbleSpeed, wobblePhase);
+        }
+
+        return points;
+    }
+
+    private static float RandomRange(Random random, float min, float max)
+    {
+        return min + (float)random.NextDouble() * (max - min);
+    }
+
+    private readonly record struct AsteroidBeltPoint(
+        float Angle,
+        float Radius,
+        float Size,
+        float Alpha,
+        float DriftSpeed,
+        float WobbleRadius,
+        float WobbleSpeed,
+        float WobblePhase);
+
+    private readonly record struct InclinedDepthItem(
+        Vector2 Position,
+        CelestialBody? Planet,
+        AsteroidBeltPoint Asteroid,
+        bool IsAsteroid)
+    {
+        public static InclinedDepthItem ForPlanet(Vector2 position, CelestialBody planet)
+        {
+            return new InclinedDepthItem(position, planet, default, false);
+        }
+
+        public static InclinedDepthItem ForAsteroid(Vector2 position, AsteroidBeltPoint asteroid)
+        {
+            return new InclinedDepthItem(position, null, asteroid, true);
+        }
+    }
+
+    private readonly record struct OrbitGroupColors(Color BackColor, Color FrontColor);
 
     private void DrawPerspectiveRing(
         Vector2 center,

@@ -23,7 +23,7 @@ public sealed class StudyPanelRenderer
         if (solarSystem.ViewMode == SystemViewMode.TopDown && solarSystem.SelectedPlanet is not null)
             DrawTopDownPlanetPanel(solarSystem, solarSystem.SelectedPlanet, viewport);
         else if (solarSystem.SelectedPlanet is not null)
-            DrawPlanetPanel(solarSystem.SelectedPlanet, viewport);
+            DrawPlanetPanel(solarSystem, solarSystem.SelectedPlanet, viewport);
         else if (solarSystem.IsSunSelected)
             DrawSunPanel(solarSystem.Sun, viewport);
     }
@@ -90,7 +90,7 @@ public sealed class StudyPanelRenderer
         DrawDiagnostics(solarSystem, planet, new Vector2(x, y));
     }
 
-    private void DrawPlanetPanel(CelestialBody planet, Viewport viewport)
+    private void DrawPlanetPanel(SolarSystemState solarSystem, CelestialBody planet, Viewport viewport)
     {
         var panel = GetPanelRectangleForSummary(planet.Summary, viewport);
         var contentWidth = panel.Width - 36;
@@ -116,6 +116,9 @@ public sealed class StudyPanelRenderer
         DrawText($"Rotacao: {planet.RotationSpeedKmh:N0} km/h", new Vector2(x, y), new Color(216, 226, 242));
         y += 24;
         DrawText($"Translacao: {planet.OrbitalSpeedKms:0.##} km/s", new Vector2(x, y), new Color(216, 226, 242));
+        y += 24;
+        var phase = GetVisiblePhase(solarSystem, planet);
+        DrawText($"Fase visivel: {phase.Name} ({phase.IlluminationPercent:0}%)", new Vector2(x, y), new Color(216, 226, 242));
         y += 34;
         y = DrawWrappedText(summaryLines, new Vector2(x, y), new Color(171, 196, 232), 23);
         y += 12;
@@ -253,7 +256,30 @@ public sealed class StudyPanelRenderer
 
     private static int GetPanelHeight(int summaryLineCount)
     {
-        return 302 + Math.Max(1, summaryLineCount) * 23;
+        return 326 + Math.Max(1, summaryLineCount) * 23;
+    }
+
+    private static (string Name, float IlluminationPercent) GetVisiblePhase(SolarSystemState solarSystem, CelestialBody planet)
+    {
+        var offset = OrbitCalculator.GetOrbitOffset(planet, solarSystem.SimulationDays, 1f, OrbitCalculator.InclinedOrbitTilt);
+        var lightDirection = new Vector3(-offset.X, 0f, -offset.Y / OrbitCalculator.InclinedOrbitTilt);
+
+        if (lightDirection.LengthSquared() <= 0.0001f)
+            return ("cheia", 100f);
+
+        lightDirection.Normalize();
+
+        var visibleAmount = MathHelper.Clamp((lightDirection.Z + 1f) * 0.5f, 0f, 1f);
+        var name = visibleAmount switch
+        {
+            < 0.12f => "nova",
+            < 0.38f => "crescente fina",
+            < 0.62f => "meia fase",
+            < 0.88f => "gibosa",
+            _ => "cheia"
+        };
+
+        return (name, visibleAmount * 100f);
     }
 
     private static string FormatScientific(double value)

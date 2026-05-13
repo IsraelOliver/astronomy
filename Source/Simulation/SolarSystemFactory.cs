@@ -40,9 +40,10 @@ public static class SolarSystemFactory
             new CelestialBody("Terra", 104f, 365f, 5.8f, new Color(75, 150, 232), 3.3f, 1.00f, 0.0167f, 12742, 5.9724e24, 1.00f, 9.81f, 15, 1674.4f, 29.78f, "Nosso planeta, com agua liquida estavel na superficie."),
             new CelestialBody("Marte", 142f, 687f, 4.5f, new Color(219, 98, 74), 4.4f, 1.52f, 0.0934f, 6779, 6.4171e23, 0.107f, 3.71f, -63, 866f, 24.07f, "Planeta rochoso frio, com calotas polares e poeira rica em ferro."),
             new CelestialBody("Jupiter", 220f, 4333f, 11.4f, new Color(216, 179, 130), 5.5f, 5.20f, 0.0489f, 139820, 1.8982e27, 317.8f, 24.79f, -110, 45300f, 13.07f, "Maior planeta; sua gravidade influencia muitos corpos menores."),
-            new CelestialBody("Saturno", 295f, 10759f, 10.4f, new Color(222, 199, 145), 1.4f, 9.58f, 0.0565f, 116460, 5.6834e26, 95.2f, 10.44f, -140, 35500f, 9.68f, "Gigante gasoso famoso por seus aneis extensos.", HasRings: true),
-            new CelestialBody("Urano", 365f, 30687f, 8.1f, new Color(139, 217, 220), 2.7f, 19.20f, 0.0463f, 50724, 8.6810e25, 14.5f, 8.69f, -195, 9320f, 6.80f, "Gigante gelado com eixo de rotacao muito inclinado."),
-            new CelestialBody("Netuno", 430f, 60190f, 7.9f, new Color(76, 116, 220), 3.8f, 30.05f, 0.0090f, 49244, 1.0241e26, 17.1f, 11.15f, -200, 9660f, 5.43f, "Gigante gelado distante, com ventos muito intensos.")
+            new CelestialBody("Saturno", 295f, 10759f, 10.4f, new Color(222, 199, 145), 1.4f, 9.58f, 0.0565f, 116460, 5.6834e26, 95.2f, 10.44f, -140, 35500f, 9.68f, "Gigante gasoso famoso por seus aneis extensos.", HasRings: true, RingStyle: "Saturn"),
+            new CelestialBody("Urano", 365f, 30687f, 8.1f, new Color(139, 217, 220), 2.7f, 19.20f, 0.0463f, 50724, 8.6810e25, 14.5f, 8.69f, -195, 9320f, 6.80f, "Gigante gelado com eixo de rotacao muito inclinado e aneis estreitos, escuros e dificeis de observar.", HasRings: true, RingStyle: "Uranus"),
+            new CelestialBody("Netuno", 430f, 60190f, 7.9f, new Color(76, 116, 220), 3.8f, 30.05f, 0.0090f, 49244, 1.0241e26, 17.1f, 11.15f, -200, 9660f, 5.43f, "Gigante gelado distante, com ventos muito intensos."),
+            new CelestialBody("Plutao", 565f, 90560f, 2.7f, new Color(190, 158, 132), 5.9f, 39.48f, 0.2488f, 2376, 1.303e22, 0.00218f, 0.62f, -229, 48.7f, 4.74f, "Planeta anao distante, com orbita muito eliptica e inclinada em relacao aos planetas principais.", OrbitArgumentDegrees: 113.8f, OrbitPlaneTiltDegrees: 17.2f)
         };
     }
 
@@ -87,7 +88,7 @@ public static class SolarSystemFactory
 
         foreach (var planet in planets)
         {
-            var angle = planet.Phase;
+            var angle = planet.Phase + MathHelper.ToRadians(planet.OrbitArgumentDegrees);
             var semiMajorAxisMeters = planet.DistanceAu * PhysicsConstants.AstronomicalUnitMeters;
             var perihelionDistanceMeters = semiMajorAxisMeters * (1d - planet.Eccentricity);
             var perihelionSpeedMetersPerSecond = Math.Sqrt(

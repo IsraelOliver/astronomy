@@ -26,6 +26,12 @@
 /processorParam:DebugMode=Auto
 /build:Effects/PassThrough.fx
 
+#begin Effects/SpaceBackground.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Effects/SpaceBackground.fx
+
 #begin Effects/SoftCircleMask.fx
 /importer:EffectImporter
 /processor:EffectProcessor
@@ -37,6 +43,12 @@
 /processor:EffectProcessor
 /processorParam:DebugMode=Auto
 /build:Effects/SunGlow.fx
+
+#begin Effects/SolarDust.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Effects/SolarDust.fx
 
 #begin Effects/ToonPlanet.fx
 /importer:EffectImporter
