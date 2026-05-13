@@ -7,7 +7,7 @@ O projeto combina dois modos principais:
 - **Modo 2D superior**: simulacao gravitacional N-corpos com editor de massa e velocidade.
 - **Modo inclinado**: visual cinematografico/educacional com shaders, profundidade, orbitas em perspectiva e leitura artistica dos planetas.
 
-![Modo inclinado do simulador](image/screenshot_20260513_105745_101.png)
+![Modo inclinado do simulador](image/screenshot_4k_20260513_123439_876.png)
 
 ## Destaques
 
