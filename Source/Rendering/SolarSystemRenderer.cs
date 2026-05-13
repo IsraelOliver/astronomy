@@ -9,6 +9,7 @@ public sealed class SolarSystemRenderer
 {
     private static readonly Color SpaceColor = new(5, 8, 18);
     private static readonly AsteroidBeltPoint[] MainAsteroidBelt = CreateMainAsteroidBelt();
+    private static readonly AsteroidBeltPoint[] KuiperBelt = CreateKuiperBelt();
 
     private readonly SpriteBatch _spriteBatch;
     private readonly TextureAssets _textures;
@@ -396,6 +397,20 @@ public sealed class SolarSystemRenderer
             WithAlpha(tint, alpha));
     }
 
+    private void DrawKuiperBeltPoint(AsteroidBeltPoint kuiperObject, Vector2 position, Vector2 center, float zoom, float orbitTilt)
+    {
+        var depthRange = 452f * zoom * orbitTilt;
+        var depth = GetScreenDepth(position, center, MathF.Max(24f, depthRange));
+        var alpha = kuiperObject.Alpha * MathHelper.Lerp(0.18f, 0.72f, depth);
+        var size = MathF.Max(1f, kuiperObject.Size * MathHelper.Lerp(0.68f, 1.16f, depth) * MathF.Sqrt(MathF.Max(zoom, 0.28f)));
+        var tint = Color.Lerp(new Color(52, 66, 86), new Color(150, 179, 214), depth);
+
+        _spriteBatch.Draw(
+            _textures.Pixel,
+            new Rectangle((int)(position.X - size * 0.5f), (int)(position.Y - size * 0.5f), Math.Max(1, (int)size), Math.Max(1, (int)size)),
+            WithAlpha(tint, alpha));
+    }
+
     private void DrawPerspectiveOrbit(
         Vector2 center,
         CelestialBody planet,
@@ -486,12 +501,22 @@ public sealed class SolarSystemRenderer
                 items.Add(InclinedDepthItem.ForAsteroid(position, asteroid));
         }
 
+        foreach (var kuiperObject in KuiperBelt)
+        {
+            var position = GetAsteroidBeltPosition(kuiperObject, center, zoom, orbitTilt);
+
+            if (IsInFrontOfSun(position, center) == drawFront)
+                items.Add(InclinedDepthItem.ForKuiperObject(position, kuiperObject));
+        }
+
         items.Sort((left, right) => left.Position.Y.CompareTo(right.Position.Y));
 
         foreach (var item in items)
         {
             if (item.IsAsteroid)
                 DrawAsteroidBeltPoint(item.Asteroid, item.Position, center, zoom, orbitTilt);
+            else if (item.IsKuiperObject)
+                DrawKuiperBeltPoint(item.KuiperObject, item.Position, center, zoom, orbitTilt);
             else if (item.Planet is not null)
                 DrawInclinedPlanetSystem(solarSystem, item.Planet, item.Position, center, zoom, orbitTilt);
         }
@@ -1009,6 +1034,30 @@ public sealed class SolarSystemRenderer
         return points;
     }
 
+    private static AsteroidBeltPoint[] CreateKuiperBelt()
+    {
+        const int count = 520;
+        var points = new AsteroidBeltPoint[count];
+        var random = new Random(149);
+
+        for (var i = 0; i < count; i++)
+        {
+            var angle = MathHelper.TwoPi * i / count + RandomRange(random, -0.012f, 0.012f);
+            var clump = MathF.Sin(angle * 7.0f + 1.4f) * 0.5f + MathF.Sin(angle * 17.0f + 0.6f) * 0.22f;
+            var radius = RandomRange(random, 462f, 610f) + clump * 16f;
+            var size = RandomRange(random, 0.85f, 1.9f);
+            var alpha = RandomRange(random, 0.08f, 0.28f);
+            var driftSpeed = RandomRange(random, 0.000006f, 0.000018f);
+            var wobbleRadius = RandomRange(random, 1.2f, 6.5f);
+            var wobbleSpeed = RandomRange(random, 0.0008f, 0.0022f);
+            var wobblePhase = RandomRange(random, 0f, MathHelper.TwoPi);
+
+            points[i] = new AsteroidBeltPoint(angle, radius, size, alpha, driftSpeed, wobbleRadius, wobbleSpeed, wobblePhase);
+        }
+
+        return points;
+    }
+
     private static float RandomRange(Random random, float min, float max)
     {
         return min + (float)random.NextDouble() * (max - min);
@@ -1028,17 +1077,25 @@ public sealed class SolarSystemRenderer
         Vector2 Position,
         CelestialBody? Planet,
         AsteroidBeltPoint Asteroid,
+        AsteroidBeltPoint KuiperObject,
         bool IsAsteroid)
     {
         public static InclinedDepthItem ForPlanet(Vector2 position, CelestialBody planet)
         {
-            return new InclinedDepthItem(position, planet, default, false);
+            return new InclinedDepthItem(position, planet, default, default, false);
         }
 
         public static InclinedDepthItem ForAsteroid(Vector2 position, AsteroidBeltPoint asteroid)
         {
-            return new InclinedDepthItem(position, null, asteroid, true);
+            return new InclinedDepthItem(position, null, asteroid, default, true);
         }
+
+        public static InclinedDepthItem ForKuiperObject(Vector2 position, AsteroidBeltPoint kuiperObject)
+        {
+            return new InclinedDepthItem(position, null, default, kuiperObject, false);
+        }
+
+        public bool IsKuiperObject => Planet is null && !IsAsteroid;
     }
 
     private readonly record struct OrbitGroupColors(Color BackColor, Color FrontColor);

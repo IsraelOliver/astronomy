@@ -12,7 +12,7 @@ O projeto combina dois modos principais:
 ## Destaques
 
 - Sol, planetas principais, Lua e Plutao.
-- Plutao como planeta anao estudavel.
+- Plutao como planeta anao estudavel, com orbita eliptica e bem inclinada no modo inclinado.
 - Motor gravitacional N-corpos no modo 2D.
 - Planetas afetam as orbitas uns dos outros.
 - Lua incluida na simulacao gravitacional.
@@ -25,6 +25,7 @@ O projeto combina dois modos principais:
 - Aneis de Saturno com textura procedural e sombra do planeta nos aneis.
 - Aneis de Urano finos, escuros e inclinados, inspirados no sistema real.
 - Cinturao principal de asteroides entre Marte e Jupiter.
+- Cinturao de Kuiper como faixa fria e dispersa alem de Netuno.
 - Fundo inclinado com gradiente espacial, nebulosidade sutil, Via Lactea estilizada, estrelas e paralaxe.
 - Labels discretos no modo inclinado.
 - Painel de estudo com fase visivel aproximada do planeta.

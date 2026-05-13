@@ -37,7 +37,7 @@ public static class OrbitCalculator
 
     private static Vector2 GetOrbitOffsetAtAnomaly(CelestialBody planet, float meanAnomaly, float zoom, float orbitTilt)
     {
-        if (orbitTilt < 0.99f)
+        if (orbitTilt < 0.99f && !HasInclinedOrbit(planet))
         {
             var scaledRadius = planet.OrbitRadius * zoom;
             return new Vector2(MathF.Cos(meanAnomaly) * scaledRadius, MathF.Sin(meanAnomaly) * scaledRadius * orbitTilt);
@@ -58,7 +58,7 @@ public static class OrbitCalculator
         var projectedY = rotatedY * orbitTilt * MathF.Cos(planeTilt);
 
         if (orbitTilt < 0.99f)
-            projectedY -= rotatedY * MathF.Sin(planeTilt) * 0.62f;
+            projectedY += rotatedX * MathF.Sin(planeTilt) * 0.3f;
 
         return new Vector2(rotatedX, projectedY);
     }
@@ -75,5 +75,10 @@ public static class OrbitCalculator
         }
 
         return anomaly;
+    }
+
+    private static bool HasInclinedOrbit(CelestialBody planet)
+    {
+        return planet.OrbitPlaneTiltDegrees > 0.01f;
     }
 }
