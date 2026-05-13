@@ -72,8 +72,19 @@ public sealed class PrimitiveRenderer
     public void DrawLine(Vector2 start, Vector2 end, Color color, float thickness)
     {
         var edge = end - start;
+        var length = edge.Length();
+
+        if (length <= 0.001f)
+            return;
+
         var angle = MathF.Atan2(edge.Y, edge.X);
-        _spriteBatch.Draw(_textures.Pixel, start, null, color, angle, Vector2.Zero, new Vector2(edge.Length(), thickness), SpriteEffects.None, 0f);
+        var source = new Rectangle(0, 0, _textures.Line.Width, _textures.Line.Height);
+        var origin = new Vector2(0f, _textures.Line.Height * 0.5f);
+        var visualThickness = MathF.Max(1f, thickness);
+        var featheredThickness = visualThickness + 2f;
+        var scale = new Vector2(length, featheredThickness / _textures.Line.Height);
+
+        _spriteBatch.Draw(_textures.Line, start, source, color, angle, origin, scale, SpriteEffects.None, 0f);
     }
 
     public void DrawRectangle(Rectangle rectangle, Color color, int thickness)

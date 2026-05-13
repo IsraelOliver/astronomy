@@ -4,6 +4,8 @@ namespace Astronomia;
 
 public sealed class InclinedRenderTargets : System.IDisposable
 {
+    private const int MultiSampleCount = 16;
+
     private int _width;
     private int _height;
 
@@ -44,7 +46,7 @@ public sealed class InclinedRenderTargets : System.IDisposable
             false,
             SurfaceFormat.Color,
             DepthFormat.None,
-            0,
+            MultiSampleCount,
             RenderTargetUsage.PreserveContents);
     }
 

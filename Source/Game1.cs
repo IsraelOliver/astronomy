@@ -8,6 +8,10 @@ namespace Astronomia;
 
 public class Game1 : Game
 {
+    private const int ScreenshotWidth = 3840;
+    private const int ScreenshotHeight = 2160;
+    private const int ScreenshotMultiSampleCount = 16;
+
     private readonly GraphicsDeviceManager _graphics;
     private readonly CameraController _camera = new();
 
@@ -24,8 +28,14 @@ public class Game1 : Game
     public Game1()
     {
         _graphics = new GraphicsDeviceManager(this);
+        _graphics.GraphicsProfile = GraphicsProfile.HiDef;
+        _graphics.PreferMultiSampling = true;
         _graphics.PreferredBackBufferWidth = 1280;
         _graphics.PreferredBackBufferHeight = 720;
+        _graphics.PreparingDeviceSettings += (_, args) =>
+        {
+            args.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 16;
+        };
         Window.Title = "Astronomia - Simulador Orbital";
 
         Content.RootDirectory = "Content";
@@ -45,7 +55,8 @@ public class Game1 : Game
         var font = Content.Load<SpriteFont>("UiFont");
         var textures = new TextureAssets(
             TextureFactory.CreatePixel(GraphicsDevice),
-            TextureFactory.CreateCircle(GraphicsDevice, 96));
+            TextureFactory.CreateCircle(GraphicsDevice, 256),
+            TextureFactory.CreateLine(GraphicsDevice));
         var shaders = new ShaderAssets(
             Content.Load<Effect>("Effects/PassThrough"),
             Content.Load<Effect>("Effects/SpaceBackground"),
@@ -90,24 +101,7 @@ public class Game1 : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(SolarSystemRenderer.BackgroundColor);
-
-        var center = _camera.GetSystemCenter(GraphicsDevice.Viewport);
-        _solarSystemRenderer.Draw(_solarSystem, center, _camera.Zoom, GraphicsDevice.Viewport);
-
-        _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
-        _hudRenderer.Draw(_solarSystem, _camera.Zoom, GraphicsDevice.Viewport);
-        _studyPanelRenderer.Draw(_solarSystem, GraphicsDevice.Viewport);
-        _studyPanelRenderer.DrawHoverTooltip(
-            _solarSystem,
-            GraphicsDevice.Viewport,
-            new Vector2(_previousMouse.X, _previousMouse.Y),
-            center,
-            _camera.Zoom,
-            _hudRenderer.PanelRectangle,
-            _hudRenderer.GetViewModeButtonRectangle(GraphicsDevice.Viewport));
-
-        _spriteBatch.End();
+        DrawFrame(GraphicsDevice.Viewport, _camera.GetSystemCenter(GraphicsDevice.Viewport), _camera.Zoom, new Vector2(_previousMouse.X, _previousMouse.Y));
 
         if (_screenshotRequested)
         {
@@ -120,20 +114,66 @@ public class Game1 : Game
 
     private void SaveScreenshot()
     {
-        var viewport = GraphicsDevice.Viewport;
-        using var screenshot = new Texture2D(GraphicsDevice, viewport.Width, viewport.Height, false, SurfaceFormat.Color);
-        var pixels = new Color[viewport.Width * viewport.Height];
-        GraphicsDevice.GetBackBufferData(pixels);
-        screenshot.SetData(pixels);
+        var previousViewport = GraphicsDevice.Viewport;
+        var screenshotViewport = new Viewport(0, 0, ScreenshotWidth, ScreenshotHeight);
+        var renderScale = MathF.Min(
+            ScreenshotWidth / (float)previousViewport.Width,
+            ScreenshotHeight / (float)previousViewport.Height);
+        var screenshotCenter = new Vector2(ScreenshotWidth / 2f, ScreenshotHeight / 2f) + _camera.Offset * renderScale;
+        var screenshotMouse = ScalePointToScreenshot(new Vector2(_previousMouse.X, _previousMouse.Y), previousViewport, screenshotViewport, renderScale);
+
+        using var screenshot = new RenderTarget2D(
+            GraphicsDevice,
+            ScreenshotWidth,
+            ScreenshotHeight,
+            false,
+            SurfaceFormat.Color,
+            DepthFormat.None,
+            ScreenshotMultiSampleCount,
+            RenderTargetUsage.PreserveContents);
+
+        GraphicsDevice.SetRenderTarget(screenshot);
+        GraphicsDevice.Viewport = screenshotViewport;
+        DrawFrame(screenshotViewport, screenshotCenter, _camera.Zoom * renderScale, screenshotMouse);
+        GraphicsDevice.SetRenderTarget(null);
+        GraphicsDevice.Viewport = previousViewport;
 
         var imageDirectory = Path.Combine(GetProjectRootDirectory(), "image");
         Directory.CreateDirectory(imageDirectory);
 
-        var fileName = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png";
+        var fileName = $"screenshot_4k_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png";
         var path = Path.Combine(imageDirectory, fileName);
 
         using var stream = File.Create(path);
-        screenshot.SaveAsPng(stream, viewport.Width, viewport.Height);
+        screenshot.SaveAsPng(stream, ScreenshotWidth, ScreenshotHeight);
+    }
+
+    private void DrawFrame(Viewport viewport, Vector2 center, float zoom, Vector2 mousePosition)
+    {
+        GraphicsDevice.Clear(SolarSystemRenderer.BackgroundColor);
+
+        _solarSystemRenderer.Draw(_solarSystem, center, zoom, viewport);
+
+        _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
+        _hudRenderer.Draw(_solarSystem, zoom, viewport);
+        _studyPanelRenderer.Draw(_solarSystem, viewport);
+        _studyPanelRenderer.DrawHoverTooltip(
+            _solarSystem,
+            viewport,
+            mousePosition,
+            center,
+            zoom,
+            _hudRenderer.PanelRectangle,
+            _hudRenderer.GetViewModeButtonRectangle(viewport));
+
+        _spriteBatch.End();
+    }
+
+    private static Vector2 ScalePointToScreenshot(Vector2 point, Viewport sourceViewport, Viewport targetViewport, float scale)
+    {
+        var sourceCenter = new Vector2(sourceViewport.Width / 2f, sourceViewport.Height / 2f);
+        var targetCenter = new Vector2(targetViewport.Width / 2f, targetViewport.Height / 2f);
+        return targetCenter + (point - sourceCenter) * scale;
     }
 
     private static string GetProjectRootDirectory()

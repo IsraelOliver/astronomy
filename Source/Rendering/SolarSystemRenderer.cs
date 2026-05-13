@@ -73,6 +73,7 @@ public sealed class SolarSystemRenderer
         Vector2 sunPosition)
     {
         var graphicsDevice = _spriteBatch.GraphicsDevice;
+        var finalRenderTargets = graphicsDevice.GetRenderTargets();
         _inclinedTargets.EnsureSize(graphicsDevice, viewport);
 
         graphicsDevice.SetRenderTarget(_inclinedTargets.BackOrbits);
@@ -118,12 +119,23 @@ public sealed class SolarSystemRenderer
         DrawInclinedPlanetLabels(solarSystem, center, zoom);
         _spriteBatch.End();
 
-        graphicsDevice.SetRenderTarget(null);
+        RestoreRenderTargets(graphicsDevice, finalRenderTargets);
         graphicsDevice.Clear(SpaceColor);
 
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp, effect: _shaders.PassThrough);
         _spriteBatch.Draw(_inclinedTargets.Scene, new Rectangle(0, 0, viewport.Width, viewport.Height), Color.White);
         _spriteBatch.End();
+    }
+
+    private static void RestoreRenderTargets(GraphicsDevice graphicsDevice, RenderTargetBinding[] renderTargets)
+    {
+        if (renderTargets.Length == 0)
+        {
+            graphicsDevice.SetRenderTarget(null);
+            return;
+        }
+
+        graphicsDevice.SetRenderTargets(renderTargets);
     }
 
     private void DrawSpaceBackground(Viewport viewport, float time, Vector2 cameraOffset)
@@ -422,7 +434,7 @@ public sealed class SolarSystemRenderer
         Vector2 depthCenter,
         OrbitGroupColors orbitColors)
     {
-        const int segments = 144;
+        var segments = GetSmoothOrbitSegmentCount(planet.OrbitRadius * zoom, orbitTilt);
         var previous = OrbitCalculator.GetOrbitPoint(center, planet, 0f, zoom, orbitTilt);
 
         for (var i = 1; i <= segments; i++)
@@ -1213,7 +1225,7 @@ public sealed class SolarSystemRenderer
         float maxAlpha,
         float maxThickness)
     {
-        const int segments = 96;
+        var segments = GetSmoothOrbitSegmentCount(radius * zoom, orbitTilt);
         var previous = OrbitCalculator.GetOrbitPoint(center, radius, 0f, zoom, orbitTilt);
 
         for (var i = 1; i <= segments; i++)
@@ -1252,7 +1264,7 @@ public sealed class SolarSystemRenderer
         bool drawFront,
         Vector2 depthCenter)
     {
-        const int segments = 112;
+        var segments = GetSmoothOrbitSegmentCount(radius * zoom, orbitTilt, minSegments: 144, maxSegments: 320);
         var previous = center + BodyPositionService.GetSatelliteOrbitVisualOffsetAtAngle(satellite, radius * zoom, 0f, orbitTilt);
 
         for (var i = 1; i <= segments; i++)
@@ -1280,6 +1292,13 @@ public sealed class SolarSystemRenderer
 
         _primitives.DrawLine(start, end, WithAlpha(color, alpha * 0.22f), thickness + 1.35f);
         _primitives.DrawLine(start, end, WithAlpha(color, alpha), thickness);
+    }
+
+    private static int GetSmoothOrbitSegmentCount(float radius, float orbitTilt, int minSegments = 224, int maxSegments = 520)
+    {
+        var projectedCircumference = MathHelper.Pi * MathF.Max(1f, radius) * (1f + MathF.Max(orbitTilt, 0.08f));
+        var segments = (int)MathF.Ceiling(projectedCircumference / 5.5f);
+        return Math.Clamp(segments, minSegments, maxSegments);
     }
 
     private void DrawSelectionMarker(Vector2 position, float radius, float zoom)
