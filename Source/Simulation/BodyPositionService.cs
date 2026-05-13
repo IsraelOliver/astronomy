@@ -6,6 +6,9 @@ namespace Astronomia;
 public static class BodyPositionService
 {
     private const float SatelliteDistanceVisualScale = 72f;
+    private const float LunarOrbitInclinationDegrees = 5.14f;
+    private const float LunarInclinationVisualBoost = 2.4f;
+    private const float LunarAscendingNodeAngle = 0.58f;
 
     public static Vector2 GetSunPosition(SolarSystemState solarSystem, Vector2 systemCenter, float zoom)
     {
@@ -73,9 +76,27 @@ public static class BodyPositionService
     {
         var radius = GetSatelliteOrbitVisualRadius(satellite, zoom);
         var angle = MathHelper.TwoPi * simulationDays / satellite.OrbitalPeriodDays + 0.65f;
+        return GetSatelliteOrbitVisualOffsetAtAngle(satellite, radius, angle, yScale);
+    }
+
+    public static Vector2 GetSatelliteOrbitVisualOffsetAtAngle(NaturalSatellite satellite, float radius, float angle, float yScale)
+    {
+        if (satellite.Name != "Lua")
+        {
+            return new Vector2(
+                MathF.Cos(angle) * radius,
+                MathF.Sin(angle) * radius * yScale);
+        }
+
+        var nodeAngle = angle - LunarAscendingNodeAngle;
+        var inclination = MathHelper.ToRadians(LunarOrbitInclinationDegrees) * LunarInclinationVisualBoost;
+        var x = MathF.Cos(angle) * radius;
+        var baseY = MathF.Sin(angle) * radius * yScale;
+        var inclinedY = MathF.Sin(nodeAngle) * radius * MathF.Sin(inclination);
+
         return new Vector2(
-            MathF.Cos(angle) * radius,
-            MathF.Sin(angle) * radius * yScale);
+            x,
+            baseY + inclinedY);
     }
 
     private static CelestialBody? FindPlanet(SolarSystemState solarSystem, string name)

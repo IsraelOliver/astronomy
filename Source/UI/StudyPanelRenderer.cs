@@ -38,13 +38,10 @@ public sealed class StudyPanelRenderer
         if (solarSystem.ViewMode == SystemViewMode.TopDown && solarSystem.SelectedPlanet is not null)
             return GetTopDownPanelRectangle(viewport);
 
-        var contentWidth = baseRectangle.Width - 36;
-        var summary = solarSystem.SelectedPlanet?.Summary ?? solarSystem.Sun.Summary;
-        var summaryLines = WrapText(summary, contentWidth);
-        baseRectangle.Height = GetPanelHeight(summaryLines.Count);
-        baseRectangle.Height = Math.Min(baseRectangle.Height, viewport.Height - baseRectangle.Y - 18);
+        if (solarSystem.SelectedPlanet is not null)
+            return GetPlanetPanelRectangle(solarSystem, solarSystem.SelectedPlanet, viewport);
 
-        return baseRectangle;
+        return GetSunPanelRectangle(solarSystem.Sun, viewport);
     }
 
     public bool TryGetEditorSliderAt(SolarSystemState solarSystem, Viewport viewport, Vector2 point, out PlanetEditorField field, out double normalizedValue)
@@ -71,6 +68,29 @@ public sealed class StudyPanelRenderer
         return false;
     }
 
+    public void DrawHoverTooltip(
+        SolarSystemState solarSystem,
+        Viewport viewport,
+        Vector2 mousePosition,
+        Vector2 systemCenter,
+        float zoom,
+        Rectangle hudPanel,
+        Rectangle viewModeButton)
+    {
+        if (solarSystem.ViewMode != SystemViewMode.Inclined ||
+            Contains(hudPanel, mousePosition) ||
+            Contains(viewModeButton, mousePosition) ||
+            (solarSystem.HasSelectedBody && Contains(GetPanelRectangle(solarSystem, viewport), mousePosition)))
+            return;
+
+        var planet = FindHoveredPlanet(solarSystem, systemCenter, zoom, mousePosition);
+
+        if (planet is null)
+            return;
+
+        DrawPlanetTooltip(solarSystem, planet, mousePosition, viewport);
+    }
+
     private void DrawTopDownPlanetPanel(SolarSystemState solarSystem, CelestialBody planet, Viewport viewport)
     {
         var panel = GetTopDownPanelRectangle(viewport);
@@ -92,7 +112,7 @@ public sealed class StudyPanelRenderer
 
     private void DrawPlanetPanel(SolarSystemState solarSystem, CelestialBody planet, Viewport viewport)
     {
-        var panel = GetPanelRectangleForSummary(planet.Summary, viewport);
+        var panel = GetPlanetPanelRectangle(solarSystem, planet, viewport);
         var contentWidth = panel.Width - 36;
         var summaryLines = WrapText(planet.Summary, contentWidth);
 
@@ -101,35 +121,29 @@ public sealed class StudyPanelRenderer
         var x = panel.X + 18;
         var y = panel.Y + 18;
 
-        DrawText(planet.Name, new Vector2(x, y), Color.White);
-        y += 34;
-        DrawText($"Distancia media: {planet.DistanceAu:0.00} UA", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Periodo orbital: {FormatOrbitalPeriod(planet.OrbitalPeriodDays)}", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Diametro: {planet.DiameterKm:N0} km", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Massa: {FormatScientific(planet.MassKg)} kg", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Massa relativa: {planet.MassEarths:0.###} x Terra", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Rotacao: {planet.RotationSpeedKmh:N0} km/h", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Translacao: {planet.OrbitalSpeedKms:0.##} km/s", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
+        y = DrawWrappedLine(planet.Name, new Vector2(x, y), Color.White, contentWidth, 30);
+        y += 4;
+        y = DrawWrappedLine($"Distancia media: {planet.DistanceAu:0.00} UA", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Periodo orbital: {FormatOrbitalPeriod(planet.OrbitalPeriodDays)}", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Diametro: {planet.DiameterKm:N0} km", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Massa: {FormatScientific(planet.MassKg)} kg", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Massa relativa: {planet.MassEarths:0.###} x Terra", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Rotacao: {planet.RotationSpeedKmh:N0} km/h", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Translacao: {planet.OrbitalSpeedKms:0.##} km/s", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
         var phase = GetVisiblePhase(solarSystem, planet);
-        DrawText($"Fase visivel: {phase.Name} ({phase.IlluminationPercent:0}%)", new Vector2(x, y), new Color(216, 226, 242));
-        y += 34;
+        y = DrawWrappedLine($"Fase visivel: {phase.Name} ({phase.IlluminationPercent:0}%)", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y += 8;
+        y = DrawInclinedContext(solarSystem, planet, new Vector2(x, y), contentWidth);
+        y += 10;
         y = DrawWrappedText(summaryLines, new Vector2(x, y), new Color(171, 196, 232), 23);
         y += 12;
-        DrawText("Camera acompanhando a orbita", new Vector2(x, y), new Color(109, 225, 166));
-        y += 24;
-        DrawText("C para voltar ao modo livre", new Vector2(x, y), new Color(167, 185, 215));
+        y = DrawWrappedLine("Camera acompanhando a orbita", new Vector2(x, y), new Color(109, 225, 166), contentWidth, 23);
+        DrawWrappedLine("C para voltar ao modo livre", new Vector2(x, y), new Color(167, 185, 215), contentWidth, 23);
     }
 
     private void DrawSunPanel(SolarBody sun, Viewport viewport)
     {
-        var panel = GetPanelRectangleForSummary(sun.Summary, viewport);
+        var panel = GetSunPanelRectangle(sun, viewport);
         var contentWidth = panel.Width - 36;
         var summaryLines = WrapText(sun.Summary, contentWidth);
 
@@ -138,32 +152,69 @@ public sealed class StudyPanelRenderer
         var x = panel.X + 18;
         var y = panel.Y + 18;
 
-        DrawText(sun.Name, new Vector2(x, y), Color.White);
-        y += 34;
-        DrawText($"Tipo: {sun.Type}", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText("Posicao: centro do Sistema Solar", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Diametro: {sun.DiameterKm:N0} km", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Massa: {sun.MassEarths:N0} x Terra", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Gravidade sup.: {sun.GravityMs2:0} m/s2", new Vector2(x, y), new Color(216, 226, 242));
-        y += 24;
-        DrawText($"Temp. superficie: {sun.SurfaceTemperatureC:N0} C", new Vector2(x, y), new Color(216, 226, 242));
-        y += 34;
+        y = DrawWrappedLine(sun.Name, new Vector2(x, y), Color.White, contentWidth, 30);
+        y += 4;
+        y = DrawWrappedLine($"Tipo: {sun.Type}", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine("Posicao: centro do Sistema Solar", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Diametro: {sun.DiameterKm:N0} km", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Massa: {sun.MassEarths:N0} x Terra", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Gravidade sup.: {sun.GravityMs2:0} m/s2", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y = DrawWrappedLine($"Temp. superficie: {sun.SurfaceTemperatureC:N0} C", new Vector2(x, y), new Color(216, 226, 242), contentWidth, 23);
+        y += 10;
         y = DrawWrappedText(summaryLines, new Vector2(x, y), new Color(171, 196, 232), 23);
         y += 12;
-        DrawText("Camera focada no Sol", new Vector2(x, y), new Color(109, 225, 166));
-        y += 24;
-        DrawText("C para voltar ao modo livre", new Vector2(x, y), new Color(167, 185, 215));
+        y = DrawWrappedLine("Camera focada no Sol", new Vector2(x, y), new Color(109, 225, 166), contentWidth, 23);
+        DrawWrappedLine("C para voltar ao modo livre", new Vector2(x, y), new Color(167, 185, 215), contentWidth, 23);
     }
 
-    private Rectangle GetPanelRectangleForSummary(string summary, Viewport viewport)
+    private Rectangle GetPlanetPanelRectangle(SolarSystemState solarSystem, CelestialBody planet, Viewport viewport)
     {
         var rectangle = new Rectangle(viewport.Width - 390, 72, 360, 304);
-        var summaryLines = WrapText(summary, rectangle.Width - 36);
-        rectangle.Height = Math.Min(GetPanelHeight(summaryLines.Count), viewport.Height - rectangle.Y - 18);
+        var contentWidth = rectangle.Width - 36;
+        var phase = GetVisiblePhase(solarSystem, planet);
+        var lines = new List<string>
+        {
+            planet.Name,
+            $"Distancia media: {planet.DistanceAu:0.00} UA",
+            $"Periodo orbital: {FormatOrbitalPeriod(planet.OrbitalPeriodDays)}",
+            $"Diametro: {planet.DiameterKm:N0} km",
+            $"Massa: {FormatScientific(planet.MassKg)} kg",
+            $"Massa relativa: {planet.MassEarths:0.###} x Terra",
+            $"Rotacao: {planet.RotationSpeedKmh:N0} km/h",
+            $"Translacao: {planet.OrbitalSpeedKms:0.##} km/s",
+            $"Fase visivel: {phase.Name} ({phase.IlluminationPercent:0}%)",
+            "Contexto orbital",
+            $"Grupo: {GetPlanetGroup(planet)}",
+            $"Distancia atual: {GetCurrentDistanceAu(solarSystem, planet):0.00} UA",
+            $"Posicao visual: {GetVisualDepthText(solarSystem, planet)}",
+            $"Excentricidade: {planet.Eccentricity:0.000}",
+            $"Inclinacao orbital: {planet.OrbitPlaneTiltDegrees:0.0} graus",
+            planet.Summary,
+            "Camera acompanhando a orbita",
+            "C para voltar ao modo livre"
+        };
+        rectangle.Height = Math.Min(MeasurePanelHeight(lines, contentWidth), viewport.Height - rectangle.Y - 18);
+        return rectangle;
+    }
+
+    private Rectangle GetSunPanelRectangle(SolarBody sun, Viewport viewport)
+    {
+        var rectangle = new Rectangle(viewport.Width - 390, 72, 360, 304);
+        var contentWidth = rectangle.Width - 36;
+        var lines = new List<string>
+        {
+            sun.Name,
+            $"Tipo: {sun.Type}",
+            "Posicao: centro do Sistema Solar",
+            $"Diametro: {sun.DiameterKm:N0} km",
+            $"Massa: {sun.MassEarths:N0} x Terra",
+            $"Gravidade sup.: {sun.GravityMs2:0} m/s2",
+            $"Temp. superficie: {sun.SurfaceTemperatureC:N0} C",
+            sun.Summary,
+            "Camera focada no Sol",
+            "C para voltar ao modo livre"
+        };
+        rectangle.Height = Math.Min(MeasurePanelHeight(lines, contentWidth), viewport.Height - rectangle.Y - 18);
         return rectangle;
     }
 
@@ -213,6 +264,79 @@ public sealed class StudyPanelRenderer
         DrawText($"Energia orbital: {FormatScientific(diagnostics.SimplifiedOrbitalEnergyJ)} J", new Vector2(position.X, y), new Color(190, 211, 240));
     }
 
+    private int DrawInclinedContext(SolarSystemState solarSystem, CelestialBody planet, Vector2 position, float maxWidth)
+    {
+        var y = (int)position.Y;
+        var contextColor = new Color(190, 211, 240);
+
+        y = DrawWrappedLine("Contexto orbital", new Vector2(position.X, y), Color.White, maxWidth, 25);
+        y = DrawWrappedLine($"Grupo: {GetPlanetGroup(planet)}", new Vector2(position.X, y), contextColor, maxWidth, 22);
+        y = DrawWrappedLine($"Distancia atual: {GetCurrentDistanceAu(solarSystem, planet):0.00} UA", new Vector2(position.X, y), contextColor, maxWidth, 22);
+        y = DrawWrappedLine($"Posicao visual: {GetVisualDepthText(solarSystem, planet)}", new Vector2(position.X, y), contextColor, maxWidth, 22);
+        y = DrawWrappedLine($"Excentricidade: {planet.Eccentricity:0.000}", new Vector2(position.X, y), contextColor, maxWidth, 22);
+        y = DrawWrappedLine($"Inclinacao orbital: {planet.OrbitPlaneTiltDegrees:0.0} graus", new Vector2(position.X, y), contextColor, maxWidth, 22);
+
+        return y;
+    }
+
+    private CelestialBody? FindHoveredPlanet(SolarSystemState solarSystem, Vector2 systemCenter, float zoom, Vector2 mousePosition)
+    {
+        CelestialBody? closest = null;
+        var closestDistance = float.MaxValue;
+
+        foreach (var planet in solarSystem.Planets)
+        {
+            var position = BodyPositionService.GetPlanetPosition(solarSystem, systemCenter, planet, zoom);
+            var hitRadius = MathF.Max(14f, planet.Radius * zoom + 10f);
+
+            if (planet.HasRings)
+                hitRadius = MathF.Max(hitRadius, planet.Radius * zoom * 2.2f + 6f);
+
+            var distance = Vector2.Distance(mousePosition, position);
+
+            if (distance <= hitRadius && distance < closestDistance)
+            {
+                closest = planet;
+                closestDistance = distance;
+            }
+        }
+
+        return closest;
+    }
+
+    private void DrawPlanetTooltip(SolarSystemState solarSystem, CelestialBody planet, Vector2 mousePosition, Viewport viewport)
+    {
+        var offset = OrbitCalculator.GetOrbitOffset(planet, solarSystem.SimulationDays, 1f, OrbitCalculator.InclinedOrbitTilt);
+        var distanceAu = offset.Length() / PhysicsConstants.PixelsPerAstronomicalUnit;
+        var lines = new[]
+        {
+            planet.Name,
+            $"Distancia atual: {distanceAu:0.00} UA",
+            $"Velocidade orbital: {planet.OrbitalSpeedKms:0.##} km/s"
+        };
+
+        var width = 0f;
+        foreach (var line in lines)
+            width = MathF.Max(width, _font.MeasureString(line).X);
+
+        var tooltip = new Rectangle(
+            (int)MathHelper.Clamp(mousePosition.X + 18f, 8f, viewport.Width - width - 34f),
+            (int)MathHelper.Clamp(mousePosition.Y + 18f, 8f, viewport.Height - 96f),
+            (int)width + 24,
+            88);
+
+        _primitives.FillRectangle(tooltip, new Color(8, 14, 28, 235));
+        _primitives.DrawRectangle(tooltip, ScaleColor(planet.Color, 1.22f), 1);
+
+        var x = tooltip.X + 12;
+        var y = tooltip.Y + 10;
+        DrawText(lines[0], new Vector2(x, y), Color.White);
+        y += 25;
+        DrawText(lines[1], new Vector2(x, y), new Color(216, 226, 242));
+        y += 22;
+        DrawText(lines[2], new Vector2(x, y), new Color(190, 211, 240));
+    }
+
     private int DrawWrappedText(IReadOnlyList<string> lines, Vector2 position, Color color, int lineHeight)
     {
         var y = (int)position.Y;
@@ -224,6 +348,11 @@ public sealed class StudyPanelRenderer
         }
 
         return y;
+    }
+
+    private int DrawWrappedLine(string text, Vector2 position, Color color, float maxWidth, int lineHeight)
+    {
+        return DrawWrappedText(WrapText(text, maxWidth), position, color, lineHeight);
     }
 
     private IReadOnlyList<string> WrapText(string text, float maxWidth)
@@ -254,9 +383,43 @@ public sealed class StudyPanelRenderer
         return lines.Count > 0 ? lines : new[] { string.Empty };
     }
 
-    private static int GetPanelHeight(int summaryLineCount)
+    private int MeasurePanelHeight(IReadOnlyList<string> lines, float maxWidth)
     {
-        return 326 + Math.Max(1, summaryLineCount) * 23;
+        var height = 36;
+
+        foreach (var line in lines)
+            height += Math.Max(1, WrapText(line, maxWidth).Count) * 23;
+
+        return height + 26;
+    }
+
+    private static string GetPlanetGroup(CelestialBody planet)
+    {
+        if (planet.Name is "Mercurio" or "Venus" or "Terra" or "Marte")
+            return "rochoso";
+
+        if (planet.Name is "Jupiter" or "Saturno")
+            return "gigante gasoso";
+
+        if (planet.Name is "Urano" or "Netuno")
+            return "gigante gelado";
+
+        if (planet.Name == "Plutao")
+            return "planeta anao / Kuiper";
+
+        return "corpo orbital";
+    }
+
+    private static float GetCurrentDistanceAu(SolarSystemState solarSystem, CelestialBody planet)
+    {
+        var offset = OrbitCalculator.GetOrbitOffset(planet, solarSystem.SimulationDays, 1f, OrbitCalculator.InclinedOrbitTilt);
+        return offset.Length() / (float)PhysicsConstants.PixelsPerAstronomicalUnit;
+    }
+
+    private static string GetVisualDepthText(SolarSystemState solarSystem, CelestialBody planet)
+    {
+        var offset = OrbitCalculator.GetOrbitOffset(planet, solarSystem.SimulationDays, 1f, OrbitCalculator.InclinedOrbitTilt);
+        return offset.Y >= 0f ? "frente do Sol" : "atras do Sol";
     }
 
     private static (string Name, float IlluminationPercent) GetVisiblePhase(SolarSystemState solarSystem, CelestialBody planet)
@@ -310,6 +473,15 @@ public sealed class StudyPanelRenderer
             return $"{days:0} dias";
 
         return $"{days / 365.25f:0.0} anos";
+    }
+
+    private static Color ScaleColor(Color color, float scale)
+    {
+        return new Color(
+            (byte)MathHelper.Clamp(color.R * scale, 0f, 255f),
+            (byte)MathHelper.Clamp(color.G * scale, 0f, 255f),
+            (byte)MathHelper.Clamp(color.B * scale, 0f, 255f),
+            color.A);
     }
 
     private void DrawText(string text, Vector2 position, Color color)

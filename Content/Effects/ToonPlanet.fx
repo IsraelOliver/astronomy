@@ -23,6 +23,10 @@ float TextureOverlayStrength;
 float OutlineStrength;
 float NoiseScale;
 float Time;
+float2 EclipseCenter;
+float EclipseRadius;
+float EclipseSoftness;
+float EclipseStrength;
 
 sampler TextureSampler : register(s0);
 
@@ -112,6 +116,10 @@ float4 MainPS(float4 color : COLOR0, float2 texCoord : TEXCOORD0) : COLOR0
 
         float outline = smoothstep(planetEdge * 0.84, planetEdge, distanceFromCenter);
         result = lerp(result, OutlineColor.rgb, outline * OutlineStrength);
+
+        float eclipseDistance = length(local - EclipseCenter);
+        float eclipseMask = 1.0 - smoothstep(EclipseRadius, EclipseRadius + EclipseSoftness, eclipseDistance);
+        result = lerp(result, ShadowColor.rgb * 0.62, eclipseMask * EclipseStrength);
 
         alpha = 1.0 - smoothstep(planetEdge * 0.985, planetEdge, distanceFromCenter) * 0.05;
     }

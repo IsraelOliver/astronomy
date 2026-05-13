@@ -16,6 +16,8 @@ O projeto combina dois modos principais:
 - Motor gravitacional N-corpos no modo 2D.
 - Planetas afetam as orbitas uns dos outros.
 - Lua incluida na simulacao gravitacional.
+- Orbita lunar inclinada no modo inclinado, mostrando que ela nao fica exatamente no plano Terra-Sol.
+- Sombras de eclipse entre Terra e Lua quando o alinhamento com o Sol fica favoravel.
 - Editor para massa, rotacao e velocidade de translacao no modo 2D.
 - Rastros orbitais no modo 2D.
 - Modo inclinado com profundidade visual, frente/tras do Sol e ordenacao de corpos.
@@ -28,7 +30,11 @@ O projeto combina dois modos principais:
 - Cinturao de Kuiper como faixa fria e dispersa alem de Netuno.
 - Fundo inclinado com gradiente espacial, nebulosidade sutil, Via Lactea estilizada, estrelas e paralaxe.
 - Labels discretos no modo inclinado.
+- Tooltip ao passar o mouse sobre planetas no modo inclinado, com nome, distancia atual e velocidade orbital.
 - Painel de estudo com fase visivel aproximada do planeta.
+- Painel contextual no modo inclinado com grupo, distancia atual, posicao frente/atras, excentricidade e inclinacao orbital.
+- Interface usa fonte Bahnschrift, com leitura mais tecnica/espacial que a fonte padrao.
+- Paineis de estudo quebram linhas automaticamente e recalculam a altura para evitar sobreposicao de textos.
 - Filtro de centro de massa no modo 2D.
 - Captura de tela com `F2`.
 

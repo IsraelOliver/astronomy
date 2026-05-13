@@ -98,6 +98,14 @@ public class Game1 : Game
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
         _hudRenderer.Draw(_solarSystem, _camera.Zoom, GraphicsDevice.Viewport);
         _studyPanelRenderer.Draw(_solarSystem, GraphicsDevice.Viewport);
+        _studyPanelRenderer.DrawHoverTooltip(
+            _solarSystem,
+            GraphicsDevice.Viewport,
+            new Vector2(_previousMouse.X, _previousMouse.Y),
+            center,
+            _camera.Zoom,
+            _hudRenderer.PanelRectangle,
+            _hudRenderer.GetViewModeButtonRectangle(GraphicsDevice.Viewport));
 
         _spriteBatch.End();
 

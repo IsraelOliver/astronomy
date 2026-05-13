@@ -562,7 +562,7 @@ public sealed class SolarSystemRenderer
     {
         DrawInclinedSatellitesForPlanet(solarSystem, planet, planetPosition, center, zoom, orbitTilt, drawFront: false);
 
-        DrawPlanetBodyWithDepth(planet, planetPosition, center, zoom);
+        DrawPlanetBodyWithDepth(solarSystem, planet, planetPosition, center, zoom);
 
         if (planet.HasRings)
             DrawPerspectiveRings(planet, planetPosition, zoom, orbitTilt, drawFront: true, center);
@@ -734,7 +734,7 @@ public sealed class SolarSystemRenderer
 
         foreach (var item in satellitesToDraw)
         {
-            DrawSatelliteBodyWithDepth(item.Satellite, item.Position, planetPosition, center, zoom);
+            DrawSatelliteBodyWithDepth(solarSystem, item.Satellite, item.Position, planetPosition, center, zoom);
         }
     }
 
@@ -763,13 +763,14 @@ public sealed class SolarSystemRenderer
             (byte)(MathHelper.Clamp(alpha, 0f, 1f) * 255f));
     }
 
-    private void DrawPlanetBodyWithDepth(CelestialBody planet, Vector2 position, Vector2 depthCenter, float zoom)
+    private void DrawPlanetBodyWithDepth(SolarSystemState solarSystem, CelestialBody planet, Vector2 position, Vector2 depthCenter, float zoom)
     {
         var visualZoom = GetPlanetVisualZoom(planet, position, depthCenter, zoom);
         var depth = GetPlanetDepth(planet, position, depthCenter, zoom);
         var color = Color.Lerp(ScaleColor(planet.Color, 0.58f), ScaleColor(planet.Color, 1.08f), depth);
         var atmosphere = GetPlanetAtmosphere(planet, color);
-        DrawToonPlanet(position, planet.Radius, visualZoom, color, atmosphere.Color, depthCenter, atmosphere.Intensity, atmosphere.Scale);
+        var eclipse = GetPlanetEclipseShadow(solarSystem, planet, position, planet.Radius * visualZoom, depthCenter, zoom);
+        DrawToonPlanet(position, planet.Radius, visualZoom, color, atmosphere.Color, depthCenter, atmosphere.Intensity, atmosphere.Scale, eclipse);
     }
 
     private static float GetPlanetDepth(CelestialBody planet, Vector2 position, Vector2 depthCenter, float zoom)
@@ -784,13 +785,14 @@ public sealed class SolarSystemRenderer
         return zoom * MathHelper.Lerp(0.88f, 1.13f, depth);
     }
 
-    private void DrawSatelliteBodyWithDepth(NaturalSatellite satellite, Vector2 position, Vector2 depthCenter, Vector2 lightCenter, float zoom)
+    private void DrawSatelliteBodyWithDepth(SolarSystemState solarSystem, NaturalSatellite satellite, Vector2 position, Vector2 depthCenter, Vector2 lightCenter, float zoom)
     {
         var depthRange = MathF.Max(8f, BodyPositionService.GetSatelliteOrbitVisualRadius(satellite, zoom) * OrbitCalculator.InclinedOrbitTilt);
         var depth = GetScreenDepth(position, depthCenter, depthRange);
         var visualZoom = zoom * MathHelper.Lerp(0.82f, 1.12f, depth);
         var color = Color.Lerp(ScaleColor(satellite.Color, 0.6f), ScaleColor(satellite.Color, 1.06f), depth);
-        DrawToonPlanet(position, satellite.Radius, visualZoom, color, ScaleColor(satellite.Color, 1.08f), lightCenter, 0.18f, 1.18f);
+        var eclipse = GetSatelliteEclipseShadow(solarSystem, satellite, position, satellite.Radius * visualZoom, lightCenter, zoom);
+        DrawToonPlanet(position, satellite.Radius, visualZoom, color, ScaleColor(satellite.Color, 1.08f), lightCenter, 0.18f, 1.18f, eclipse);
     }
 
     private void DrawToonPlanet(
@@ -801,7 +803,8 @@ public sealed class SolarSystemRenderer
         Color atmosphereColor,
         Vector2 lightCenter,
         float atmosphereIntensity,
-        float atmosphereScale)
+        float atmosphereScale,
+        EclipseShadow eclipse)
     {
         var planetRadius = MathF.Max(1.5f, radius * zoom);
         var atmosphereRadius = planetRadius * atmosphereScale;
@@ -815,7 +818,7 @@ public sealed class SolarSystemRenderer
         if (lightDirection.LengthSquared() <= 0.0001f)
             lightDirection = new Vector3(0f, 0f, 1f);
 
-        ConfigureToonPlanet(baseColor, atmosphereColor, lightDirection, 1f / atmosphereScale, atmosphereIntensity);
+        ConfigureToonPlanet(baseColor, atmosphereColor, lightDirection, 1f / atmosphereScale, atmosphereIntensity, eclipse);
 
         _spriteBatch.End();
         _spriteBatch.Begin(
@@ -835,7 +838,8 @@ public sealed class SolarSystemRenderer
         Color atmosphereColor,
         Vector3 lightDirection,
         float planetRadius,
-        float atmosphereIntensity)
+        float atmosphereIntensity,
+        EclipseShadow eclipse)
     {
         lightDirection.Normalize();
 
@@ -862,6 +866,10 @@ public sealed class SolarSystemRenderer
         _shaders.ToonPlanet.Parameters["OutlineStrength"]?.SetValue(0.11f);
         _shaders.ToonPlanet.Parameters["NoiseScale"]?.SetValue(6.2f);
         _shaders.ToonPlanet.Parameters["Time"]?.SetValue(_shaderTime);
+        _shaders.ToonPlanet.Parameters["EclipseCenter"]?.SetValue(eclipse.Center);
+        _shaders.ToonPlanet.Parameters["EclipseRadius"]?.SetValue(eclipse.Radius);
+        _shaders.ToonPlanet.Parameters["EclipseSoftness"]?.SetValue(eclipse.Softness);
+        _shaders.ToonPlanet.Parameters["EclipseStrength"]?.SetValue(eclipse.Strength);
     }
 
     private static (Color Color, float Intensity, float Scale) GetPlanetAtmosphere(CelestialBody planet, Color visualColor)
@@ -879,6 +887,97 @@ public sealed class SolarSystemRenderer
             "Plutao" => (new Color(206, 166, 128), 0.18f, 1.16f),
             _ => (ScaleColor(visualColor, 1.08f), 0.45f, 1.28f)
         };
+    }
+
+    private EclipseShadow GetPlanetEclipseShadow(
+        SolarSystemState solarSystem,
+        CelestialBody planet,
+        Vector2 planetPosition,
+        float planetScreenRadius,
+        Vector2 lightCenter,
+        float zoom)
+    {
+        if (planet.Name != "Terra")
+            return EclipseShadow.None;
+
+        var moon = FindSatellite(solarSystem, "Lua");
+        if (moon is null)
+            return EclipseShadow.None;
+
+        var moonPosition = BodyPositionService.GetSatellitePosition(solarSystem, lightCenter, moon, zoom);
+        var moonScreenRadius = moon.Radius * zoom;
+        return CreateEclipseShadow(planetPosition, planetScreenRadius, moonPosition, moonScreenRadius, lightCenter, 1.2f, 1.25f);
+    }
+
+    private EclipseShadow GetSatelliteEclipseShadow(
+        SolarSystemState solarSystem,
+        NaturalSatellite satellite,
+        Vector2 satellitePosition,
+        float satelliteScreenRadius,
+        Vector2 lightCenter,
+        float zoom)
+    {
+        if (satellite.Name != "Lua")
+            return EclipseShadow.None;
+
+        var earth = FindPlanet(solarSystem, satellite.ParentName);
+        if (earth is null)
+            return EclipseShadow.None;
+
+        var earthPosition = BodyPositionService.GetPlanetPosition(solarSystem, lightCenter, earth, zoom);
+        var earthVisualZoom = GetPlanetVisualZoom(earth, earthPosition, lightCenter, zoom);
+        var earthScreenRadius = earth.Radius * earthVisualZoom;
+        return CreateEclipseShadow(satellitePosition, satelliteScreenRadius, earthPosition, earthScreenRadius, lightCenter, 1.65f, 1.55f);
+    }
+
+    private static EclipseShadow CreateEclipseShadow(
+        Vector2 targetPosition,
+        float targetScreenRadius,
+        Vector2 occluderPosition,
+        float occluderScreenRadius,
+        Vector2 lightCenter,
+        float radiusScale,
+        float strengthScale)
+    {
+        var lightToTarget = targetPosition - lightCenter;
+        var lightToOccluder = occluderPosition - lightCenter;
+        var lengthSquared = lightToTarget.LengthSquared();
+
+        if (lengthSquared <= 0.0001f)
+            return EclipseShadow.None;
+
+        var t = Vector2.Dot(lightToOccluder, lightToTarget) / lengthSquared;
+        if (t <= 0f || t >= 1f)
+            return EclipseShadow.None;
+
+        var closestPoint = lightCenter + lightToTarget * t;
+        var alignmentDistance = Vector2.Distance(occluderPosition, closestPoint);
+        var alignmentLimit = targetScreenRadius + occluderScreenRadius * 1.8f;
+        var alignment = 1f - MathHelper.Clamp(alignmentDistance / MathF.Max(alignmentLimit, 0.001f), 0f, 1f);
+
+        if (alignment <= 0f)
+            return EclipseShadow.None;
+
+        var atmosphereRadius = targetScreenRadius * 1.5f;
+        var center = (occluderPosition - targetPosition) / MathF.Max(atmosphereRadius, 0.001f);
+        var radius = MathHelper.Clamp(occluderScreenRadius * radiusScale / MathF.Max(atmosphereRadius, 0.001f), 0.08f, 0.96f);
+        var strength = MathHelper.Clamp(alignment * strengthScale, 0f, 0.88f);
+
+        if (center.Length() > 1.2f)
+            return EclipseShadow.None;
+
+        return new EclipseShadow(center, radius, 0.18f, strength);
+    }
+
+    private static NaturalSatellite? FindSatellite(SolarSystemState solarSystem, string name)
+    {
+        foreach (var satellite in solarSystem.Satellites)
+        {
+            if (satellite.Name == name)
+                return satellite;
+        }
+
+        return null;
     }
 
     private static Vector3 GetInclinedLightDirection(Vector2 bodyPosition, Vector2 lightCenter)
@@ -1100,6 +1199,11 @@ public sealed class SolarSystemRenderer
 
     private readonly record struct OrbitGroupColors(Color BackColor, Color FrontColor);
 
+    private readonly record struct EclipseShadow(Vector2 Center, float Radius, float Softness, float Strength)
+    {
+        public static EclipseShadow None => new(Vector2.Zero, 0f, 0.12f, 0f);
+    }
+
     private void DrawPerspectiveRing(
         Vector2 center,
         float radius,
@@ -1149,14 +1253,14 @@ public sealed class SolarSystemRenderer
         Vector2 depthCenter)
     {
         const int segments = 112;
-        var previous = OrbitCalculator.GetOrbitPoint(center, radius, 0f, zoom, orbitTilt);
+        var previous = center + BodyPositionService.GetSatelliteOrbitVisualOffsetAtAngle(satellite, radius * zoom, 0f, orbitTilt);
 
         for (var i = 1; i <= segments; i++)
         {
             var angle = MathHelper.TwoPi * i / segments;
             var previousAngle = MathHelper.TwoPi * (i - 1) / segments;
             var middleAngle = (previousAngle + angle) * 0.5f;
-            var current = OrbitCalculator.GetOrbitPoint(center, radius, angle, zoom, orbitTilt);
+            var current = center + BodyPositionService.GetSatelliteOrbitVisualOffsetAtAngle(satellite, radius * zoom, angle, orbitTilt);
             var midpoint = (previous + current) * 0.5f;
 
             if (IsInFrontOfSun(midpoint, depthCenter) == drawFront)
