@@ -30,6 +30,7 @@ public class Game1 : Game
         var spriteBatch = new SpriteBatch(GraphicsDevice);
 
         var font = Content.Load<SpriteFont>("UiFont");
+        var labelFont = Content.Load<SpriteFont>("LabelFont");
         var textures = new TextureAssets(
             TextureFactory.CreatePixel(GraphicsDevice),
             TextureFactory.CreateCircle(GraphicsDevice, 256),
@@ -47,7 +48,7 @@ public class Game1 : Game
         var primitives = new PrimitiveRenderer(spriteBatch, textures);
         var solarSystem = SolarSystemFactory.Create(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
         var settings = UserSettings.Load();
-        var solarSystemRenderer = new SolarSystemRenderer(spriteBatch, textures, shaders, primitives, font);
+        var solarSystemRenderer = new SolarSystemRenderer(spriteBatch, textures, shaders, primitives, font, labelFont);
         var hudRenderer = new HudRenderer(spriteBatch, font, primitives, textures);
         var studyPanelRenderer = new StudyPanelRenderer(spriteBatch, font, primitives);
 

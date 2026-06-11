@@ -5,7 +5,7 @@ public static class AstronomyTextCatalog
     public static string GetBodyName(Language language, string bodyName)
     {
         if (language != Language.English)
-            return bodyName;
+            return GetPortugueseBodyName(bodyName);
 
         return bodyName switch
         {
@@ -29,21 +29,50 @@ public static class AstronomyTextCatalog
         if (language == Language.English)
             return GetEnglishPlanetSummary(planet.Name);
 
-        return planet.Summary;
+        return GetPortuguesePlanetSummary(planet.Name);
     }
 
     public static string GetSunType(Language language, SolarBody sun)
     {
         return language == Language.English
             ? "Yellow dwarf star"
-            : sun.Type;
+            : "Estrela anã amarela";
     }
 
     public static string GetSunSummary(Language language, SolarBody sun)
     {
         return language == Language.English
             ? "Source of light and energy for the Solar System; it contains nearly all of the system's mass."
-            : sun.Summary;
+            : "Fonte de luz e energia do Sistema Solar; concentra quase toda a massa do sistema.";
+    }
+
+    private static string GetPortugueseBodyName(string bodyName)
+    {
+        return bodyName switch
+        {
+            "Mercurio" => "Mercúrio",
+            "Venus" => "Vênus",
+            "Jupiter" => "Júpiter",
+            "Plutao" => "Plutão",
+            _ => bodyName,
+        };
+    }
+
+    private static string GetPortuguesePlanetSummary(string planetName)
+    {
+        return planetName switch
+        {
+            "Mercurio" => "Menor planeta e o mais próximo do Sol.",
+            "Venus" => "Atmosfera muito densa e efeito estufa extremo.",
+            "Terra" => "Nosso planeta, com água líquida estável na superfície.",
+            "Marte" => "Planeta rochoso frio, com calotas polares e poeira rica em ferro.",
+            "Jupiter" => "Maior planeta; sua gravidade influencia muitos corpos menores.",
+            "Saturno" => "Gigante gasoso famoso por seus anéis extensos.",
+            "Urano" => "Gigante gelado com eixo de rotação muito inclinado e anéis estreitos, escuros e difíceis de observar.",
+            "Netuno" => "Gigante gelado distante, com ventos muito intensos.",
+            "Plutao" => "Planeta anão distante, com órbita muito elíptica e inclinada em relação aos planetas principais.",
+            _ => string.Empty,
+        };
     }
 
     private static string GetEnglishPlanetSummary(string planetName)

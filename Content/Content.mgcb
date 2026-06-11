@@ -20,6 +20,13 @@
 /processorParam:TextureFormat=Compressed
 /build:UiFont.spritefont
 
+#begin LabelFont.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:LabelFont.spritefont
+
 #begin icons/earth.png
 /importer:TextureImporter
 /processor:TextureProcessor

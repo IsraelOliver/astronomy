@@ -16,17 +16,19 @@ public sealed class SolarSystemRenderer
     private readonly ShaderAssets _shaders;
     private readonly PrimitiveRenderer _primitives;
     private readonly SpriteFont _font;
+    private readonly SpriteFont _labelFont;
     private readonly InclinedRenderTargets _inclinedTargets = new();
     private Language _currentLanguage = Language.Portuguese;
     private float _shaderTime;
 
-    public SolarSystemRenderer(SpriteBatch spriteBatch, TextureAssets textures, ShaderAssets shaders, PrimitiveRenderer primitives, SpriteFont font)
+    public SolarSystemRenderer(SpriteBatch spriteBatch, TextureAssets textures, ShaderAssets shaders, PrimitiveRenderer primitives, SpriteFont font, SpriteFont labelFont)
     {
         _spriteBatch = spriteBatch;
         _textures = textures;
         _shaders = shaders;
         _primitives = primitives;
         _font = font;
+        _labelFont = labelFont;
     }
 
     public static Color BackgroundColor => SpaceColor;
@@ -554,7 +556,7 @@ public sealed class SolarSystemRenderer
 
     private void DrawPlanetLabel(string text, Vector2 bodyPosition, float bodyRadius, bool isSelected, Color accentColor)
     {
-        var textSize = _font.MeasureString(text);
+        var textSize = _labelFont.MeasureString(text);
         var labelPosition = bodyPosition + new Vector2(bodyRadius + 8f, -bodyRadius - 18f);
         var lineStart = bodyPosition + new Vector2(bodyRadius * 0.58f, -bodyRadius * 0.58f);
         var lineEnd = labelPosition + new Vector2(-4f, textSize.Y * 0.55f);
@@ -563,8 +565,8 @@ public sealed class SolarSystemRenderer
         var lineColor = WithAlpha(ScaleColor(accentColor, 1.25f), alpha * 0.72f);
 
         _primitives.DrawLine(lineStart, lineEnd, lineColor, isSelected ? 1.25f : 0.85f);
-        _spriteBatch.DrawString(_font, text, labelPosition + new Vector2(1f, 1f), WithAlpha(SpaceColor, alpha * 0.88f));
-        _spriteBatch.DrawString(_font, text, labelPosition, textColor);
+        _spriteBatch.DrawString(_labelFont, text, labelPosition + new Vector2(1f, 1f), WithAlpha(SpaceColor, alpha * 0.88f));
+        _spriteBatch.DrawString(_labelFont, text, labelPosition, textColor);
     }
 
     private void DrawInclinedPlanetSystem(
