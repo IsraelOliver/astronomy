@@ -18,11 +18,6 @@ public sealed class HudRenderer
 
     public Rectangle PanelRectangle => new(18, 18, 350, 124);
 
-    public Rectangle GetViewModeButtonRectangle(Viewport viewport)
-    {
-        return new Rectangle(viewport.Width - 212, viewport.Height - 62, 190, 40);
-    }
-
     public Rectangle GetSunCenterButtonRectangle(Viewport viewport)
     {
         return new Rectangle(22, viewport.Height - 72, 168, 50);
@@ -65,8 +60,6 @@ public sealed class HudRenderer
         var stateColor = solarSystem.Paused ? new Color(255, 182, 90) : new Color(91, 216, 144);
         DrawText(state, new Vector2(viewport.Width - 124, 24), stateColor);
 
-        DrawViewModeButton(solarSystem.ViewMode, viewport);
-
         if (solarSystem.ViewMode == SystemViewMode.TopDown)
         {
             DrawSunCenterButton(viewport);
@@ -80,23 +73,6 @@ public sealed class HudRenderer
     private void DrawText(string text, Vector2 position, Color color)
     {
         _spriteBatch.DrawString(_font, text, position, color);
-    }
-
-    private void DrawViewModeButton(SystemViewMode viewMode, Viewport viewport)
-    {
-        var button = GetViewModeButtonRectangle(viewport);
-        var isTopDown = viewMode == SystemViewMode.TopDown;
-        var fillColor = isTopDown ? new Color(32, 91, 128, 230) : new Color(8, 14, 28, 230);
-        var borderColor = isTopDown ? new Color(117, 220, 255) : new Color(78, 105, 150, 230);
-        var label = isTopDown ? "Modo inclinado" : "Modo 2D superior";
-        var labelSize = _font.MeasureString(label);
-        var labelPosition = new Vector2(
-            button.Center.X - labelSize.X / 2f,
-            button.Center.Y - labelSize.Y / 2f);
-
-        _primitives.FillRectangle(button, fillColor);
-        _primitives.DrawRectangle(button, borderColor, 2);
-        DrawText(label, labelPosition, Color.White);
     }
 
     private void DrawSunCenterButton(Viewport viewport)

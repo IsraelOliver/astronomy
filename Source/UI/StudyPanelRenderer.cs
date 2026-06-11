@@ -74,12 +74,10 @@ public sealed class StudyPanelRenderer
         Vector2 mousePosition,
         Vector2 systemCenter,
         float zoom,
-        Rectangle hudPanel,
-        Rectangle viewModeButton)
+        Rectangle hudPanel)
     {
         if (solarSystem.ViewMode != SystemViewMode.Inclined ||
             Contains(hudPanel, mousePosition) ||
-            Contains(viewModeButton, mousePosition) ||
             (solarSystem.HasSelectedBody && Contains(GetPanelRectangle(solarSystem, viewport), mousePosition)))
             return;
 

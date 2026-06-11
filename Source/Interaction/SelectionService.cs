@@ -11,11 +11,9 @@ public static class SelectionService
         Vector2 systemCenter,
         float zoom,
         Rectangle hudPanel,
-        Rectangle studyPanel,
-        Rectangle viewModeButton)
+        Rectangle studyPanel)
     {
         if (Contains(hudPanel, mousePosition) ||
-            Contains(viewModeButton, mousePosition) ||
             (solarSystem.HasSelectedBody && Contains(studyPanel, mousePosition)))
             return;
 
