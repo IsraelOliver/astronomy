@@ -19,7 +19,7 @@ public class Game1 : Game
         {
             args.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 16;
         };
-        Window.Title = "Astronomia - Simulador Orbital";
+        Window.Title = "Astronomy";
 
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
