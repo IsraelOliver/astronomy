@@ -20,10 +20,13 @@ public sealed class InclinedSimulationState : IGameState
     private readonly HudRenderer _hudRenderer;
     private readonly StudyPanelRenderer _studyPanelRenderer;
     private readonly SolarSystemRenderer _solarSystemRenderer;
+    private readonly UserSettings _settings;
 
     private KeyboardState _previousKeyboard;
     private MouseState _previousMouse;
     private bool _screenshotRequested;
+    private bool _isLanguageMenuOpen;
+    private Language _selectedLanguage = Language.English;
 
     public InclinedSimulationState(
         Game game,
@@ -32,7 +35,8 @@ public sealed class InclinedSimulationState : IGameState
         SpriteBatch spriteBatch,
         HudRenderer hudRenderer,
         StudyPanelRenderer studyPanelRenderer,
-        SolarSystemRenderer solarSystemRenderer)
+        SolarSystemRenderer solarSystemRenderer,
+        UserSettings settings)
     {
         _game = game;
         _graphicsDevice = graphicsDevice;
@@ -41,6 +45,8 @@ public sealed class InclinedSimulationState : IGameState
         _hudRenderer = hudRenderer;
         _studyPanelRenderer = studyPanelRenderer;
         _solarSystemRenderer = solarSystemRenderer;
+        _settings = settings;
+        _selectedLanguage = _settings.Language;
 
         _camera.Reset(_solarSystem.ViewMode);
     }
@@ -121,18 +127,22 @@ public sealed class InclinedSimulationState : IGameState
     {
         _graphicsDevice.Clear(SolarSystemRenderer.BackgroundColor);
 
-        _solarSystemRenderer.Draw(_solarSystem, center, zoom, viewport);
+        _solarSystemRenderer.Draw(_solarSystem, center, zoom, viewport, _selectedLanguage);
 
         _spriteBatch.Begin(samplerState: SamplerState.LinearClamp);
-        _hudRenderer.Draw(_solarSystem, zoom, viewport);
-        _studyPanelRenderer.Draw(_solarSystem, viewport);
+        _hudRenderer.Draw(_solarSystem, zoom, viewport, _isLanguageMenuOpen, _selectedLanguage);
+        _studyPanelRenderer.Draw(_solarSystem, viewport, _selectedLanguage);
         _studyPanelRenderer.DrawHoverTooltip(
             _solarSystem,
             viewport,
             mousePosition,
             center,
             zoom,
-            _hudRenderer.PanelRectangle);
+            _hudRenderer.PanelRectangle,
+            _hudRenderer.GetLanguageButtonRectangle(viewport),
+            _hudRenderer.GetLanguageMenuRectangle(viewport),
+            _isLanguageMenuOpen,
+            _selectedLanguage);
 
         _spriteBatch.End();
     }
@@ -196,6 +206,33 @@ public sealed class InclinedSimulationState : IGameState
         var filterButton = _hudRenderer.GetFilterButtonRectangle(_graphicsDevice.Viewport);
         var filterMenu = _hudRenderer.GetFilterMenuRectangle(_graphicsDevice.Viewport);
         var centerOfMassCheckbox = _hudRenderer.GetCenterOfMassCheckboxRectangle(_graphicsDevice.Viewport);
+        var languageButton = _hudRenderer.GetLanguageButtonRectangle(_graphicsDevice.Viewport);
+        var languageMenu = _hudRenderer.GetLanguageMenuRectangle(_graphicsDevice.Viewport);
+        var englishButton = _hudRenderer.GetEnglishButtonRectangle(_graphicsDevice.Viewport);
+        var portugueseButton = _hudRenderer.GetPortugueseButtonRectangle(_graphicsDevice.Viewport);
+
+        if (Contains(languageButton, mousePosition))
+        {
+            _isLanguageMenuOpen = !_isLanguageMenuOpen;
+            return;
+        }
+
+        if (_isLanguageMenuOpen && Contains(englishButton, mousePosition))
+        {
+            SelectLanguage(Language.English);
+            return;
+        }
+
+        if (_isLanguageMenuOpen && Contains(portugueseButton, mousePosition))
+        {
+            SelectLanguage(Language.Portuguese);
+            return;
+        }
+
+        if (_isLanguageMenuOpen && Contains(languageMenu, mousePosition))
+            return;
+
+        _isLanguageMenuOpen = false;
 
         if (_solarSystem.ViewMode == SystemViewMode.TopDown && Contains(sunButton, mousePosition))
         {
@@ -225,12 +262,23 @@ public sealed class InclinedSimulationState : IGameState
             _camera.GetSystemCenter(_graphicsDevice.Viewport),
             _camera.Zoom,
             _hudRenderer.PanelRectangle,
-            _studyPanelRenderer.GetPanelRectangle(_solarSystem, _graphicsDevice.Viewport));
+            _studyPanelRenderer.GetPanelRectangle(_solarSystem, _graphicsDevice.Viewport, _selectedLanguage),
+            languageButton,
+            languageMenu,
+            _isLanguageMenuOpen);
     }
 
     private bool WasPressed(KeyboardState keyboard, Keys key)
     {
         return keyboard.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
+    }
+
+    private void SelectLanguage(Language language)
+    {
+        _selectedLanguage = language;
+        _settings.Language = language;
+        _settings.Save();
+        _isLanguageMenuOpen = false;
     }
 
     private bool WasLeftClicked(MouseState mouse)

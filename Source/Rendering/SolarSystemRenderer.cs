@@ -17,6 +17,7 @@ public sealed class SolarSystemRenderer
     private readonly PrimitiveRenderer _primitives;
     private readonly SpriteFont _font;
     private readonly InclinedRenderTargets _inclinedTargets = new();
+    private Language _currentLanguage = Language.Portuguese;
     private float _shaderTime;
 
     public SolarSystemRenderer(SpriteBatch spriteBatch, TextureAssets textures, ShaderAssets shaders, PrimitiveRenderer primitives, SpriteFont font)
@@ -30,8 +31,10 @@ public sealed class SolarSystemRenderer
 
     public static Color BackgroundColor => SpaceColor;
 
-    public void Draw(SolarSystemState solarSystem, Vector2 center, float zoom, Viewport viewport)
+    public void Draw(SolarSystemState solarSystem, Vector2 center, float zoom, Viewport viewport, Language language)
     {
+        _currentLanguage = language;
+
         if (_shaders.PassThrough is null ||
             _shaders.SpaceBackground is null ||
             _shaders.SoftCircleMask is null ||
@@ -545,7 +548,7 @@ public sealed class SolarSystemRenderer
             if (!isSelected && screenRadius < 9.5f)
                 continue;
 
-            DrawPlanetLabel(planet.Name, position, screenRadius, isSelected, planet.Color);
+            DrawPlanetLabel(AstronomyTextCatalog.GetBodyName(_currentLanguage, planet.Name), position, screenRadius, isSelected, planet.Color);
         }
     }
 

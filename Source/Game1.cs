@@ -33,7 +33,8 @@ public class Game1 : Game
         var textures = new TextureAssets(
             TextureFactory.CreatePixel(GraphicsDevice),
             TextureFactory.CreateCircle(GraphicsDevice, 256),
-            TextureFactory.CreateLine(GraphicsDevice));
+            TextureFactory.CreateLine(GraphicsDevice),
+            Content.Load<Texture2D>("icons/earth"));
         var shaders = new ShaderAssets(
             Content.Load<Effect>("Effects/PassThrough"),
             Content.Load<Effect>("Effects/SpaceBackground"),
@@ -45,8 +46,9 @@ public class Game1 : Game
 
         var primitives = new PrimitiveRenderer(spriteBatch, textures);
         var solarSystem = SolarSystemFactory.Create(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
+        var settings = UserSettings.Load();
         var solarSystemRenderer = new SolarSystemRenderer(spriteBatch, textures, shaders, primitives, font);
-        var hudRenderer = new HudRenderer(spriteBatch, font, primitives);
+        var hudRenderer = new HudRenderer(spriteBatch, font, primitives, textures);
         var studyPanelRenderer = new StudyPanelRenderer(spriteBatch, font, primitives);
 
         _activeState = new InclinedSimulationState(
@@ -56,7 +58,8 @@ public class Game1 : Game
             spriteBatch,
             hudRenderer,
             studyPanelRenderer,
-            solarSystemRenderer);
+            solarSystemRenderer,
+            settings);
     }
 
     protected override void Update(GameTime gameTime)
